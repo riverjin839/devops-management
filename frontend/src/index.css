@@ -1,0 +1,589 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Databricks-leaning Light theme (default) ─────────────────────────────
+     Phase A redesign — flat surfaces, slate palette, sky accent, dark sidebar.
+     See PR description for full token rationale. */
+  :root {
+    --background: 210 40% 98%;        /* #F8FAFC slate-50 — body bg */
+    --foreground: 222 47% 11%;        /* #0F172A slate-900 — body text */
+    --card: 0 0% 100%;                /* pure white card */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 200 98% 32%;           /* #0369A1 sky-700 — calmer than macOS blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 33% 95%;         /* #E8ECF1 — secondary surface */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 215 16% 47%;  /* #64748B slate-500 */
+    --accent: 200 80% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 73% 50%;         /* #DC2626 red-600 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;            /* #E2E8F0 slate-200 — subtle 1px borders */
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;              /* slate-900 focus ring */
+    --radius: 0.5rem;                 /* 8px — flatter than macOS 14px */
+    --mac-red:    #FF5F57;
+    --mac-yellow: #FEBC2E;
+    --mac-green:  #28C840;
+    --card-shadow: none;              /* flat — border replaces shadow */
+
+    /* ── Sidebar tokens (Databricks dark navy, light theme only) ──────── */
+    --sidebar:                  214 30% 14%;   /* #1B2530 */
+    --sidebar-foreground:       210 40% 96%;   /* #F1F5F9 */
+    --sidebar-muted-foreground: 215 20% 65%;   /* #94A3B8 */
+    --sidebar-accent:           217 33% 22%;   /* active item bg */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border:           217 30% 24%;
+    --sidebar-primary:          200 98% 60%;   /* brighter sky for dark bg */
+
+    /* ── Semantic status tokens (DESIGN_SYSTEM §2.4) — 운영 도구 표준값 ─ */
+    --status-healthy:     142 71% 45%;   /* #22C55E green-500 */
+    --status-healthy-bg:  142 71% 92%;
+    --status-warning:     38 92% 50%;    /* #F59E0B amber-500 */
+    --status-warning-bg:  38 92% 92%;
+    --status-critical:    0 84% 50%;     /* #DC2626 red-600 */
+    --status-critical-bg: 0 84% 94%;
+    --status-unknown:     220 9% 46%;    /* #6B7280 gray-500 */
+    --status-unknown-bg:  220 9% 92%;
+    --status-pending:     220 9% 46%;    /* alias of --status-unknown (legacy) */
+    --status-pending-bg:  220 9% 92%;
+    --status-info:        199 89% 48%;   /* #0EA5E9 sky-500 */
+    --status-info-bg:     199 89% 92%;
+    --status-neutral:     215 12% 55%;
+    --status-neutral-bg:  215 12% 93%;
+
+    /* ── Motion — 모든 transition 기본값 통일 (Pre-delivery checklist 준수) ─ */
+    --motion-fast: 150ms;
+    --motion-base: 200ms;
+    --motion-slow: 300ms;
+    --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ── Dark theme ──────────────────────────────────────────────────────────── */
+  html.dark {
+    --background: 220 18% 7%;
+    --foreground: 220 10% 96%;
+    --card: 220 17% 10%;
+    --card-foreground: 220 10% 96%;
+    --popover: 220 17% 10%;
+    --popover-foreground: 220 10% 96%;
+    --primary: 212 100% 63%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 16%;
+    --secondary-foreground: 220 10% 96%;
+    --muted: 220 14% 16%;
+    --muted-foreground: 220 8% 68%;
+    --accent: 217 72% 18%;
+    --accent-foreground: 220 10% 96%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
+    --ring: 212 100% 63%;
+    --radius: 0.5rem;
+    --mac-red:    #FF5F57;
+    --mac-yellow: #FEBC2E;
+    --mac-green:  #28C840;
+    --card-shadow: none;
+
+    /* Dark theme: sidebar matches body so the dark navy doesn't double-up */
+    --sidebar:                  220 18% 5%;
+    --sidebar-foreground:       220 10% 96%;
+    --sidebar-muted-foreground: 220 8% 68%;
+    --sidebar-accent:           220 14% 18%;
+    --sidebar-accent-foreground: 220 10% 96%;
+    --sidebar-border:           220 14% 14%;
+    --sidebar-primary:          212 100% 63%;
+
+    /* Dark mode status (DESIGN_SYSTEM §2.4) — 전경 채도 유지, 배경 채도 ↓ */
+    --status-healthy:     142 71% 45%;
+    --status-healthy-bg:  142 50% 14%;
+    --status-warning:     38 92% 50%;
+    --status-warning-bg:  38 60% 14%;
+    --status-critical:    0 84% 60%;
+    --status-critical-bg: 0 60% 16%;
+    --status-unknown:     220 9% 55%;
+    --status-unknown-bg:  220 12% 18%;
+    --status-pending:     220 9% 55%;
+    --status-pending-bg:  220 12% 18%;
+    --status-info:        199 89% 55%;
+    --status-info-bg:     199 50% 16%;
+    --status-neutral:     215 8% 60%;
+    --status-neutral-bg:  215 8% 18%;
+
+    --motion-fast: 150ms;
+    --motion-base: 200ms;
+    --motion-slow: 300ms;
+    --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ── Light class — keeps :root tokens (kept explicit for class-based switch) ── */
+  html.light {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 200 98% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 33% 95%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 200 80% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 73% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 11%;
+    --radius: 0.5rem;
+    --mac-red:    #FF5F57;
+    --mac-yellow: #FEBC2E;
+    --mac-green:  #28C840;
+    --card-shadow: none;
+
+    --sidebar:                  214 30% 14%;
+    --sidebar-foreground:       210 40% 96%;
+    --sidebar-muted-foreground: 215 20% 65%;
+    --sidebar-accent:           217 33% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border:           217 30% 24%;
+    --sidebar-primary:          200 98% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Databricks tone — flat background, no decorative gradient */
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.003em;
+  }
+
+  /* Headings — toned down from extrabold to match Databricks restraint */
+  h1 { font-weight: 700; letter-spacing: -0.015em; }
+  h2 { font-weight: 600; letter-spacing: -0.01em; }
+  h3 { font-weight: 600; }
+  h4, h5, h6 { font-weight: 600; }
+
+  label { font-weight: 600; }
+  strong, b { font-weight: 700; }
+}
+
+/* ── Phase B density pass ──────────────────────────────────────────────────
+   Restore Tailwind type scale so dense layouts (tables, cards, sidebar)
+   actually read as Databricks-tight. Only floor the smallest arbitrary
+   sizes (9–10px) up to 11px for legibility — 11px stays as-is. */
+.text-\[9px\]  { font-size: 11px !important; line-height: 1.4; }
+.text-\[10px\] { font-size: 11px !important; line-height: 1.4; }
+
+pre .text-\[9px\], pre .text-\[10px\], code .text-\[9px\], code .text-\[10px\] {
+  font-size: inherit !important;
+}
+
+/* Tailwind defaults restored (no overrides) — relying on tailwind.css's
+   built-in text-xs (12px) / text-sm (14px) / text-base (16px) etc. */
+/* font-weight: also restored — let Tailwind's font-medium=500,
+   font-semibold=600, font-bold=700 do their job. Headings carry weight via
+   the @layer base h1/h2/h3 rules above. */
+
+/* ── macOS-style Card shadow utility ──────────────────────────────────────── */
+.mac-shadow {
+  box-shadow: var(--card-shadow);
+}
+
+/* ── Status utilities (DESIGN_SYSTEM §2.4) ──────────────────────────────────
+   컴포넌트에서 raw `text-green-400` `text-red-500` 등 사용 금지.
+   • text-status-* / bg-status-* (solid)  → Tailwind config 가 생성 (token-driven)
+   • bg-status-*-soft                     → 옅은 배경 (badge/alert), --status-*-bg 변수 참조 */
+.bg-status-healthy-soft  { background-color: hsl(var(--status-healthy-bg)); }
+.bg-status-warning-soft  { background-color: hsl(var(--status-warning-bg)); }
+.bg-status-critical-soft { background-color: hsl(var(--status-critical-bg)); }
+.bg-status-unknown-soft  { background-color: hsl(var(--status-unknown-bg)); }
+
+/* ── Focus ring — 키보드 접근성 (마우스 클릭 시는 안 보이게) ────────────── */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* 이미 ring 유틸을 쓰는 input/button 은 중복 방지 */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* ── 부드러운 transition 기본값 — motion 토큰 참조 ────────────────────── */
+a, button {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+}
+button:not(:disabled):not([aria-disabled="true"]),
+a:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* ── placeholder 가독성 개선 (너무 흐리면 안 보임) ───────────────────────── */
+::placeholder {
+  color: hsl(var(--muted-foreground) / 0.55);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+
+/* ── Animation ─────────────────────────────────────────────────────────────── */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── Skeleton loading shimmer ──────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted) / 0.5) 0%,
+    hsl(var(--muted) / 0.85) 50%,
+    hsl(var(--muted) / 0.5) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s var(--motion-ease) infinite;
+  border-radius: 6px;
+}
+
+/* ── Toast — slide-in/out from right ───────────────────────────────────── */
+@keyframes toast-in {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes toast-out {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
+.toast-enter { animation: toast-in  var(--motion-base) var(--motion-ease); }
+.toast-exit  { animation: toast-out var(--motion-base) var(--motion-ease) forwards; }
+
+/* ── Prefers-reduced-motion — 모든 애니메이션/트랜지션 최소화 ────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Date input calendar icon (dark mode only) ─────────────────────────────── */
+html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+html:not(.light) input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* ── Rich Text Editor (Tiptap / Confluence-style) ──────────────────────────── */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+/* Editor content typography */
+.ProseMirror h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.ProseMirror h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.875rem;
+  margin-bottom: 0.375rem;
+}
+.ProseMirror p {
+  margin-bottom: 0.5rem;
+  line-height: 1.625;
+}
+.ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+.ProseMirror strong { font-weight: 700; }
+.ProseMirror em { font-style: italic; }
+.ProseMirror u { text-decoration: underline; }
+.ProseMirror s { text-decoration: line-through; }
+.ProseMirror mark {
+  background-color: hsl(48 96% 53% / 0.4);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Code */
+.ProseMirror code {
+  background-color: hsl(var(--muted) / 0.6);
+  color: hsl(var(--primary));
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
+.ProseMirror pre {
+  background-color: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.ProseMirror pre code {
+  background: none;
+  color: hsl(var(--foreground) / 0.9);
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Lists */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.ProseMirror li {
+  margin: 0.25rem 0;
+  line-height: 1.6;
+}
+.ProseMirror li p { margin: 0; }
+
+/* Task list */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+}
+.ProseMirror ul[data-type="taskList"] li input[type="checkbox"] {
+  accent-color: hsl(var(--primary));
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+/* Blockquote */
+.ProseMirror blockquote {
+  border-left: 4px solid hsl(var(--primary) / 0.4);
+  padding-left: 1rem;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  margin: 0.75rem 0;
+}
+
+/* Horizontal rule */
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 1rem 0;
+}
+
+/* Links */
+.ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ProseMirror a:hover { opacity: 0.8; }
+
+/* Images */
+.ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  display: block;
+}
+
+/* Tables */
+.ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+.ProseMirror table th,
+.ProseMirror table td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.ProseMirror table th {
+  background-color: hsl(var(--muted) / 0.4);
+  font-weight: 600;
+}
+.ProseMirror table tr:nth-child(even) td {
+  background-color: hsl(var(--muted) / 0.15);
+}
+.ProseMirror .selectedCell {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+/* Rich content display (read mode) */
+.rich-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.rich-content h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 0.875rem;
+  margin-bottom: 0.375rem;
+}
+.rich-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.rich-content p { margin-bottom: 0.375rem; line-height: 1.6; }
+.rich-content p:last-child { margin-bottom: 0; }
+.rich-content strong { font-weight: 700; }
+.rich-content em { font-style: italic; }
+.rich-content u { text-decoration: underline; }
+.rich-content s { text-decoration: line-through; }
+.rich-content mark {
+  background-color: hsl(48 96% 53% / 0.4);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.rich-content code {
+  background-color: hsl(var(--muted) / 0.6);
+  color: hsl(var(--primary));
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
+.rich-content pre {
+  background-color: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 0.875rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.rich-content pre code { background: none; color: hsl(var(--foreground) / 0.9); padding: 0; }
+.rich-content ul { list-style-type: disc; padding-left: 1.5rem; margin: 0.375rem 0; }
+.rich-content ol { list-style-type: decimal; padding-left: 1.5rem; margin: 0.375rem 0; }
+.rich-content li { margin: 0.125rem 0; line-height: 1.6; }
+.rich-content li p { margin: 0; }
+.rich-content ul[data-type="taskList"] { list-style: none; padding-left: 0.25rem; }
+.rich-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5rem; }
+.rich-content ul[data-type="taskList"] li > label { flex-shrink: 0; padding-top: 2px; }
+.rich-content ul[data-type="taskList"] li > div { flex: 1; }
+.rich-content ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+}
+.rich-content blockquote {
+  border-left: 4px solid hsl(var(--primary) / 0.4);
+  padding-left: 1rem;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+.rich-content hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 0.75rem 0; }
+.rich-content a { color: hsl(var(--primary)); text-decoration: underline; }
+.rich-content img { max-width: 100%; border-radius: 8px; margin: 0.375rem 0; display: block; }
+.rich-content table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.875rem; }
+.rich-content table th,
+.rich-content table td { border: 1px solid hsl(var(--border)); padding: 0.375rem 0.625rem; text-align: left; }
+.rich-content table th { background-color: hsl(var(--muted) / 0.4); font-weight: 600; }

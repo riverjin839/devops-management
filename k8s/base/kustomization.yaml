@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: k8s-monitor
+
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+
+resources:
+  # Namespace
+  - namespace.yaml
+
+  # Database
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+
+  # Cache/Message Broker
+  - redis/deployment.yaml
+  - redis/service.yaml
+
+  # Backend API
+  - backend/serviceaccount.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+
+  # Celery Workers
+  - celery/worker-deployment.yaml
+  - celery/beat-deployment.yaml
+
+  # Frontend
+  - frontend/nginx-configmap.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+
+  # Networking
+  - ingress.yaml
+
+  # Autoscaling
+  - hpa.yaml
+
+  # AI Agent (Optional - Ollama)
+  - ollama.yaml
+
+  # Monitoring Stack (Prometheus, Grafana, kube-state-metrics, node-exporter)
+  - monitoring/
+
+configMapGenerator:
+  - name: k8s-monitor-config
+    literals:
+      - APP_NAME=K8s Daily Monitor
+      - DEBUG=false
+      - CHECK_INTERVAL_MINUTES=5
+      - CHECK_TIMEOUT_SECONDS=30
+      - ANSIBLE_PLAYBOOK_DIR=/app/ansible/playbooks
+      - ANSIBLE_INVENTORY_DIR=/app/ansible/inventory
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=k8s_monitor
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OLLAMA_URL=http://ollama:11434
+      - PROMETHEUS_URL=http://prometheus:9090
+      - GRAFANA_URL=http://grafana:3000
+  - name: ansible-playbooks
+    files:
+      - check_cluster.yml=ansible-playbooks-check_cluster.yml
+
+secretGenerator:
+  - name: k8s-monitor-secret
+    literals:
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=changeme-in-production
+      - SECRET_KEY=your-super-secret-key-change-this-in-production
+      - DATABASE_URL=postgresql://postgres:changeme-in-production@postgres:5432/k8s_monitor
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+generatorOptions:
+  disableNameSuffixHash: true
