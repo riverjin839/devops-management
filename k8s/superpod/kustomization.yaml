@@ -1,0 +1,19 @@
+# Standalone Kustomize bundle for deploying the super pod CronJob INSIDE a
+# target cluster (in_cluster mode). Apply with:
+#
+#   kubectl --context=<TARGET> apply -k k8s/superpod/
+#
+# Before applying:
+#   1. Patch `superpod-secret.yaml` with the INGEST_URL and INGEST_TOKEN
+#      that the management backend is configured with
+#      (`settings.superpod_ingest_token`).
+#   2. Patch `superpod-cronjob.yaml` SUPERPOD_CLUSTER_ID to the UUID this
+#      cluster is registered as on the management backend.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: k8s-monitor-agent
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - superpod-secret.yaml
+  - superpod-cronjob.yaml

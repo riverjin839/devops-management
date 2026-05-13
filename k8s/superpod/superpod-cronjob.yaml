@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: superpod
+  namespace: k8s-monitor-agent
+  labels:
+    app.kubernetes.io/name: superpod
+    app.kubernetes.io/part-of: k8s-daily-monitor
+spec:
+  schedule: "20 9,13,18 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: superpod
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: k8s-monitor-agent
+          containers:
+            - name: superpod
+              # Same image as the management backend. Override the registry
+              # via kustomize `images:` patch in airgap setups.
+              image: ghcr.io/riverjin839/devops-management/backend:latest
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-m", "app.superpod.runner", "--mode", "in_cluster"]
+              env:
+                - name: SUPERPOD_MODE
+                  value: in_cluster
+                # PATCH — UUID this cluster is registered as on the management backend.
+                - name: SUPERPOD_CLUSTER_ID
+                  value: REPLACE_WITH_CLUSTER_UUID
+              envFrom:
+                - secretRef:
+                    name: superpod-ingest
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "768Mi"
+                  cpu: "500m"

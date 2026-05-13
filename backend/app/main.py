@@ -14,6 +14,7 @@ from app.routers import (
     clusters_router,
     daily_check_router,
     deep_check_router,
+    deep_check_public_router,
     health_router,
     history_router,
     issues_router,
@@ -702,6 +703,8 @@ app.add_middleware(
 # Public routers (no auth) — login + liveness/readiness probes.
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
+# Public super-pod ingest — bearer-token auth handled inside the router.
+app.include_router(deep_check_public_router, prefix="/api/v1")
 
 # Protected routers — every endpoint below requires a valid JWT.
 _auth = [Depends(get_current_user)]

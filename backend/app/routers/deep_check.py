@@ -3,11 +3,12 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import Cluster, DailyCheckLog
 from app.models.deep_check import (
@@ -22,6 +23,10 @@ from app.services.review_service import review_service
 
 
 router = APIRouter(prefix="/deep-check", tags=["Deep Check"])
+# Separate router for endpoints called by the in-cluster super pod; mounted
+# WITHOUT the global JWT dependency. Auth is by shared bearer token in the
+# Authorization header, validated below.
+public_router = APIRouter(prefix="/deep-check", tags=["Deep Check (public)"])
 
 
 # ----------------------------- Schemas ----------------------------------
@@ -198,4 +203,77 @@ async def get_latest_result(
         .order_by(desc(DeepCheckResult.updated_at))
         .first()
     )
+    return row
+
+
+# ----------------------------- Ingest (public, token-auth) --------------
+
+class IngestPayload(BaseModel):
+    cluster_id: UUID
+    source: DeepCheckSource = DeepCheckSource.in_cluster
+    checked_at: Optional[datetime] = None
+    results: dict[str, dict]
+    errors: Optional[list[dict]] = Field(default=None)
+
+
+def _require_ingest_token(authorization: Optional[str] = Header(default=None)) -> None:
+    expected = settings.superpod_ingest_token
+    if not expected:
+        raise HTTPException(status_code=503, detail="Ingest disabled — SUPERPOD_INGEST_TOKEN not set")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    if authorization.split(" ", 1)[1] != expected:
+        raise HTTPException(status_code=401, detail="Invalid ingest token")
+
+
+@public_router.post("/ingest", response_model=DeepCheckResultResponse)
+async def ingest_deep_check(
+    payload: IngestPayload,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_ingest_token),
+):
+    """Receive a deep-check payload pushed by an in-cluster super pod.
+
+    The payload is attached to the most recent DailyCheckLog for the
+    cluster, mirroring the centralized path. The user-configured thresholds
+    on each ``DeepCheckDefinition`` are still authoritative — we just
+    persist the results as-is from the pod (which used registry defaults).
+    """
+    cluster = db.query(Cluster).filter(Cluster.id == payload.cluster_id).first()
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+
+    log = (
+        db.query(DailyCheckLog)
+        .filter(DailyCheckLog.cluster_id == cluster.id)
+        .order_by(desc(DailyCheckLog.checked_at))
+        .first()
+    )
+    if log is None:
+        raise HTTPException(
+            status_code=409,
+            detail="DailyCheckLog 가 없습니다. 먼저 일일 점검을 실행하세요.",
+        )
+
+    row = (
+        db.query(DeepCheckResult)
+        .filter(DeepCheckResult.daily_check_log_id == log.id)
+        .first()
+    )
+    if row is None:
+        row = DeepCheckResult(
+            cluster_id=cluster.id,
+            daily_check_log_id=log.id,
+            ai_status=AiReviewStatus.pending,
+        )
+        db.add(row)
+
+    row.source = payload.source
+    row.results = payload.results
+    row.errors = payload.errors
+
+    db.commit()
+    db.refresh(row)
+
+    deep_check_service._schedule_review(log.id)
     return row

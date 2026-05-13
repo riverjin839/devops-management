@@ -55,6 +55,15 @@ class Settings(BaseSettings):
 
     # Kubeconfig 저장 디렉토리 (content 방식으로 등록 시 사용)
     kubeconfig_store_dir: str = "/tmp/k8s-monitor/kubeconfigs"
+
+    # Super Pod (Phase 2b) — runs deep checks from inside target clusters
+    # and pushes results back to this backend, or locally (centralized).
+    superpod_mode: str = "centralized"   # "in_cluster" | "centralized"
+    superpod_cluster_id: str = ""        # Target cluster UUID for in_cluster mode
+    superpod_ingest_url: str = ""        # e.g. https://k8s-monitor.example.com/api/v1
+    superpod_ingest_token: str = ""      # bearer token recognised by /deep-check/ingest
+    superpod_verify_ssl: bool = True
+    mgmt_namespace: str = "k8s-monitor"  # namespace for K8s Event notifications (Phase 4)
     
     class Config:
         env_file = ".env"
