@@ -204,6 +204,7 @@ export function ServiceEntryEditModal({
                 placeholder={
                   form.kind === 'guide' ? '운영 절차를 단계별로 정리하세요.'
                   : form.kind === 'troubleshoot' ? '증상 / 원인 / 해결 과정 / 재발 방지...'
+                  : form.kind === 'command' ? '자주 쓰는 명령어 / 옵션 / 예시 출력. 코드블록 권장.'
                   : form.kind === 'history' ? '무엇을 변경/조치했는지 — 영향 범위, 결과, 후속...'
                   : form.kind === 'link' ? '이 리소스에 대한 짧은 설명...'
                   : '메모 내용...'
