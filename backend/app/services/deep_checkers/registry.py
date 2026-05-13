@@ -11,11 +11,16 @@ from typing import Iterable, Optional
 
 from app.services.deep_checkers.base import DeepBaseChecker
 from app.services.deep_checkers.crash_loop_checker import CrashLoopChecker
+from app.services.deep_checkers.daemonset_coverage_checker import DaemonSetCoverageChecker
+from app.services.deep_checkers.deployment_progress_checker import DeploymentProgressChecker
+from app.services.deep_checkers.endpoint_health_checker import EndpointHealthChecker
+from app.services.deep_checkers.event_burst_checker import EventBurstChecker
 from app.services.deep_checkers.hpa_health_checker import HpaHealthChecker
 from app.services.deep_checkers.image_pull_checker import ImagePullChecker
 from app.services.deep_checkers.node_pressure_checker import NodePressureChecker
 from app.services.deep_checkers.oom_kill_checker import OomKillChecker
 from app.services.deep_checkers.pvc_health_checker import PvcHealthChecker
+from app.services.deep_checkers.stuck_namespace_checker import StuckNamespaceChecker
 from app.services.deep_checkers.tls_secret_expiry_checker import TlsSecretExpiryChecker
 from app.services.deep_checkers.unscheduled_pods_checker import UnscheduledPodsChecker
 
@@ -31,6 +36,11 @@ _REGISTRY: dict[str, type[DeepBaseChecker]] = {
         OomKillChecker,
         HpaHealthChecker,
         TlsSecretExpiryChecker,
+        DaemonSetCoverageChecker,
+        DeploymentProgressChecker,
+        StuckNamespaceChecker,
+        EventBurstChecker,
+        EndpointHealthChecker,
     )
 }
 
@@ -122,5 +132,45 @@ DEFAULT_DEFINITIONS = [
         "thresholds": TlsSecretExpiryChecker.default_thresholds,
         "params": TlsSecretExpiryChecker.default_params,
         "sort_order": 80,
+    },
+    {
+        "check_type": "daemonset_coverage",
+        "name": "DaemonSet 커버리지 점검",
+        "description": "desired vs current / ready 불일치 + misscheduled",
+        "thresholds": DaemonSetCoverageChecker.default_thresholds,
+        "params": DaemonSetCoverageChecker.default_params,
+        "sort_order": 90,
+    },
+    {
+        "check_type": "deployment_progress",
+        "name": "Deployment 진행 상태 점검",
+        "description": "Available=False / Progressing=False (ProgressDeadlineExceeded 등)",
+        "thresholds": DeploymentProgressChecker.default_thresholds,
+        "params": DeploymentProgressChecker.default_params,
+        "sort_order": 100,
+    },
+    {
+        "check_type": "stuck_namespace",
+        "name": "Terminating 정체 네임스페이스",
+        "description": "Terminating 으로 오래 머무는 네임스페이스 (finalizer 잠김)",
+        "thresholds": StuckNamespaceChecker.default_thresholds,
+        "params": StuckNamespaceChecker.default_params,
+        "sort_order": 110,
+    },
+    {
+        "check_type": "event_burst",
+        "name": "Warning Event 폭증",
+        "description": "최근 윈도우 내 Warning Event count / 단일 사유 폭증",
+        "thresholds": EventBurstChecker.default_thresholds,
+        "params": EventBurstChecker.default_params,
+        "sort_order": 120,
+    },
+    {
+        "check_type": "endpoint_health",
+        "name": "Service Endpoint Health",
+        "description": "Service 가 매칭하는 Endpoints 에 ready address 가 0 인 경우",
+        "thresholds": EndpointHealthChecker.default_thresholds,
+        "params": EndpointHealthChecker.default_params,
+        "sort_order": 130,
     },
 ]
