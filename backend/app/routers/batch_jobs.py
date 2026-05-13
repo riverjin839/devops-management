@@ -32,8 +32,19 @@ from app.services.batch_job_service import (
     get_job_or_404,
 )
 from app.services.batch_jobs import get_executor, list_executors
+from app.services.secrets import encrypt_secret
 
 router = APIRouter(prefix="/batch-jobs", tags=["batch-jobs"])
+
+
+def _to_response(job: BatchJob) -> dict:
+    """Materialize a BatchJob into the response shape (with masked cred flags)."""
+    return {
+        **{c.name: getattr(job, c.name) for c in BatchJob.__table__.columns
+           if c.name not in ("default_password_enc", "default_private_key_enc")},
+        "has_default_password": bool(job.default_password_enc),
+        "has_default_private_key": bool(job.default_private_key_enc),
+    }
 
 
 # ── job type registry ────────────────────────────────────────────────────────
@@ -58,7 +69,7 @@ def list_jobs(
     if job_type:
         q = q.filter(BatchJob.job_type == job_type)
     jobs = q.order_by(BatchJob.created_at.desc()).all()
-    return BatchJobListResponse(data=jobs)
+    return BatchJobListResponse(data=[_to_response(j) for j in jobs])
 
 
 @router.post("", response_model=BatchJobResponse, status_code=status.HTTP_201_CREATED)
@@ -71,17 +82,24 @@ def create_job(payload: BatchJobCreate, db: Session = Depends(get_db)):
             detail=f"Unknown job_type '{payload.job_type}'. See GET /batch-jobs/types.",
         )
 
-    job = BatchJob(**payload.model_dump())
+    data = payload.model_dump()
+    plain_password = data.pop("default_password", None)
+    plain_key = data.pop("default_private_key", None)
+    job = BatchJob(**data)
+    if plain_password:
+        job.default_password_enc = encrypt_secret(plain_password)
+    if plain_key:
+        job.default_private_key_enc = encrypt_secret(plain_key)
     db.add(job)
     db.commit()
     db.refresh(job)
-    return job
+    return _to_response(job)
 
 
 @router.get("/{job_id}", response_model=BatchJobResponse)
 def get_job(job_id: UUID, db: Session = Depends(get_db)):
     try:
-        return get_job_or_404(db, job_id)
+        return _to_response(get_job_or_404(db, job_id))
     except BatchJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BatchJob not found")
 
@@ -93,11 +111,20 @@ def update_job(job_id: UUID, payload: BatchJobUpdate, db: Session = Depends(get_
     except BatchJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BatchJob not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    # Special-case credential fields: empty string clears, non-empty re-encrypts,
+    # unset leaves the existing ciphertext alone.
+    if "default_password" in update_data:
+        plain = update_data.pop("default_password")
+        job.default_password_enc = encrypt_secret(plain) if plain else None
+    if "default_private_key" in update_data:
+        plain = update_data.pop("default_private_key")
+        job.default_private_key_enc = encrypt_secret(plain) if plain else None
+    for field, value in update_data.items():
         setattr(job, field, value)
     db.commit()
     db.refresh(job)
-    return job
+    return _to_response(job)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -147,6 +174,20 @@ async def run_job(job_id: UUID, payload: BatchJobRunRequest, db: Session = Depen
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return run
+
+
+@router.delete("/{job_id}/credentials", response_model=BatchJobResponse)
+def clear_job_credentials(job_id: UUID, db: Session = Depends(get_db)):
+    """Drop stored encrypted credentials for scheduled execution."""
+    try:
+        job = get_job_or_404(db, job_id)
+    except BatchJobNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="BatchJob not found")
+    job.default_password_enc = None
+    job.default_private_key_enc = None
+    db.commit()
+    db.refresh(job)
+    return _to_response(job)
 
 
 @router.get("/{job_id}/runs", response_model=BatchJobRunListResponse)

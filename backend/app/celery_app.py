@@ -68,6 +68,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.celery_app.run_centralized_deep_check",
         "schedule": crontab(hour=18, minute=15),
     },
+    # BatchJob cron entries are not in Beat — a 1-minute tick scheduler
+    # queries the DB and dispatches due jobs (see tick_batch_job_scheduler).
+    "batch-job-scheduler-tick": {
+        "task": "app.celery_app.tick_batch_job_scheduler",
+        "schedule": crontab(),
+    },
 }
 
 
@@ -165,18 +171,32 @@ def run_trend_collect(self):
 def run_batch_job(self, job_id: str, *, password: str | None = None, private_key: str | None = None):
     """Execute a registered batch job by id.
 
-    Credentials must be passed in (they are not stored on BatchJob).
-    Used for scheduled runs (Celery Beat) and ad-hoc background triggers.
+    If no credentials are supplied by the caller, falls back to the
+    encrypted-at-rest credentials on the BatchJob row (decrypted via
+    services.secrets). Used for scheduled runs (tick scheduler) and
+    ad-hoc background triggers.
     """
     from uuid import UUID
     from app.database import SessionLocal
     from app.services.batch_job_service import execute_job, get_job_or_404
+    from app.services.secrets import decrypt_secret
 
     db = SessionLocal()
     try:
         job = get_job_or_404(db, UUID(job_id))
         if not job.enabled:
             return {"job_id": job_id, "skipped": True, "reason": "disabled"}
+
+        if not password and job.default_password_enc:
+            password = decrypt_secret(job.default_password_enc)
+        if not private_key and job.default_private_key_enc:
+            private_key = decrypt_secret(job.default_private_key_enc)
+        if not password and not private_key:
+            return {
+                "job_id": job_id,
+                "skipped": True,
+                "reason": "no credentials (set default_password or default_private_key for scheduled execution)",
+            }
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -198,6 +218,38 @@ def run_batch_job(self, job_id: str, *, password: str | None = None, private_key
             "run_id": str(run.id),
             "status": result.status,
             "duration_ms": result.duration_ms,
+        }
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="app.celery_app.tick_batch_job_scheduler")
+def tick_batch_job_scheduler(self):
+    """Once-per-minute Beat tick that dispatches BatchJobs whose cron matches.
+
+    Picks up newly-added cron entries and disable toggles within a minute,
+    without a Beat restart.
+    """
+    from app.database import SessionLocal
+    from app.models import BatchJob
+    from app.services.batch_job_scheduler import find_due_jobs
+
+    db = SessionLocal()
+    try:
+        jobs = (
+            db.query(BatchJob)
+            .filter(BatchJob.enabled.is_(True), BatchJob.cron.isnot(None))
+            .all()
+        )
+        due = find_due_jobs(jobs)
+        fired: list[str] = []
+        for job in due:
+            run_batch_job.delay(str(job.id))
+            fired.append(str(job.id))
+        return {
+            "checked": len(jobs),
+            "fired": fired,
+            "at": datetime.now().isoformat(),
         }
     finally:
         db.close()
