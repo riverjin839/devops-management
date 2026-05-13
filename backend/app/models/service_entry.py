@@ -31,7 +31,7 @@ class ServiceEntry(Base):
     # 특정 클러스터에 한정된 항목인지 (NULL 이면 모든 클러스터에 공통)
     cluster_id = Column(UUID(as_uuid=True), ForeignKey("clusters.id", ondelete="SET NULL"), nullable=True)
     # 항목 종류
-    kind = Column(String(32), nullable=False, default="note")  # note / guide / troubleshoot / history / link
+    kind = Column(String(32), nullable=False, default="note")  # note / guide / troubleshoot / command / history / link
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False, default="")          # rich HTML or markdown
     # link 종류일 때 사용

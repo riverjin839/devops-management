@@ -41,18 +41,19 @@ export function getServiceDef(key: string): ServiceDef {
 
 // kind 메타
 export interface KindDef {
-  key: 'note' | 'guide' | 'troubleshoot' | 'history' | 'link';
+  key: 'note' | 'guide' | 'troubleshoot' | 'command' | 'history' | 'link';
   label: string;
   icon: LucideIcon;
   color: string;
 }
 
-import { FileText, BookOpen, AlertTriangle, Clock, Link2 } from 'lucide-react';
+import { FileText, BookOpen, AlertTriangle, Terminal, Clock, Link2 } from 'lucide-react';
 
 export const KIND_CATALOG: KindDef[] = [
   { key: 'note',         label: '메모',         icon: FileText,       color: 'slate' },
   { key: 'guide',        label: '운영 가이드',   icon: BookOpen,       color: 'sky' },
   { key: 'troubleshoot', label: '트러블슈팅',    icon: AlertTriangle,  color: 'amber' },
+  { key: 'command',      label: '주요명령어',    icon: Terminal,       color: 'violet' },
   { key: 'history',      label: '변경 이력',     icon: Clock,          color: 'emerald' },
   { key: 'link',         label: '리소스 링크',   icon: Link2,          color: 'purple' },
 ];
