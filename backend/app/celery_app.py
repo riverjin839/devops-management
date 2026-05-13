@@ -52,6 +52,22 @@ celery_app.conf.beat_schedule = {
         "task": "app.celery_app.run_trend_collect",
         "schedule": crontab(hour=7, minute=0),
     },
+    # Deep check 자동 실행 — 일일 점검(09/13/18) 직후 15분에 실행해서
+    # DailyCheckLog 가 이미 존재하는 상태에서 결과를 붙임. centralized 모드
+    # (backend pod 가 stored kubeconfig 로 외부 점검). 내부 super pod 가
+    # 배포된 클러스터에서는 자체 CronJob 이 같은 ingest API 로 push.
+    "deep-check-morning": {
+        "task": "app.celery_app.run_centralized_deep_check",
+        "schedule": crontab(hour=9, minute=15),
+    },
+    "deep-check-noon": {
+        "task": "app.celery_app.run_centralized_deep_check",
+        "schedule": crontab(hour=13, minute=15),
+    },
+    "deep-check-evening": {
+        "task": "app.celery_app.run_centralized_deep_check",
+        "schedule": crontab(hour=18, minute=15),
+    },
 }
 
 
@@ -185,6 +201,40 @@ def run_batch_job(self, job_id: str, *, password: str | None = None, private_key
         }
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, name="app.celery_app.run_centralized_deep_check")
+def run_centralized_deep_check(self):
+    """Run centralized deep checks for every registered cluster.
+
+    Wired into Beat at 09:15/13:15/18:15 KST so each daily check (09/13/18)
+    already has a DailyCheckLog by the time we attach deep results. AI
+    review + notification fan-out are scheduled by deep_check_service.
+    """
+    from app.database import SessionLocal
+    from app.models import Cluster
+    from app.models.deep_check import DeepCheckSource
+    from app.services.deep_check_service import deep_check_service
+
+    db = SessionLocal()
+    successes = 0
+    failures: list[dict] = []
+    try:
+        for cluster in db.query(Cluster).all():
+            try:
+                deep_check_service.run_for_cluster(
+                    db, cluster.id, source=DeepCheckSource.centralized
+                )
+                successes += 1
+            except Exception as exc:
+                failures.append({"cluster": cluster.name, "error": str(exc)[:300]})
+    finally:
+        db.close()
+    return {
+        "executed_at": datetime.now().isoformat(),
+        "successes": successes,
+        "failures": failures,
+    }
 
 
 @celery_app.task(bind=True, name="app.celery_app.run_review_and_notify")
