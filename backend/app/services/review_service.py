@@ -59,7 +59,8 @@ class ReviewService:
         cluster = db.query(Cluster).filter(Cluster.id == log.cluster_id).first()
         prev_log = self._previous_log(db, log)
         trend = self._build_trend(log, prev_log)
-        context = self._build_context(cluster, log, prev_log, trend)
+        deep_results = existing.results if existing else None
+        context = self._build_context(cluster, log, prev_log, trend, deep_results)
 
         agent_resp = await agent_service.ask_agent(REVIEW_QUERY, context=context)
         summary, remediation = self._parse_response(agent_resp.get("answer", ""))
@@ -141,6 +142,7 @@ class ReviewService:
         log: DailyCheckLog,
         prev: Optional[DailyCheckLog],
         trend: dict,
+        deep_results: Optional[dict] = None,
     ) -> dict:
         node_lines = []
         for n in (log.nodes_status or [])[:10]:
@@ -163,6 +165,16 @@ class ReviewService:
                 prev.checked_at.isoformat() if prev and prev.checked_at else None
             ),
         }
+        if deep_results:
+            # Strip oversized log payloads from the AI context — keep status/message only.
+            extra["deep_checks"] = {
+                k: {
+                    "name": v.get("name"),
+                    "status": v.get("status"),
+                    "message": v.get("message"),
+                }
+                for k, v in deep_results.items()
+            }
 
         return {
             "cluster_name": cluster.name if cluster else str(log.cluster_id),

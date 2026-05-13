@@ -10,7 +10,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,39 @@ class AiReviewStatus(str, enum.Enum):
     ok = "ok"
     offline = "offline"
     error = "error"
+
+
+class DeepCheckDefinition(Base):
+    """User-editable deep check definition.
+
+    Modeled after ``metric_cards``: built-in defaults are seeded on first
+    startup, but the UI can add/edit/disable rows freely. The ``check_type``
+    column is the lookup key into ``services.deep_checkers.registry`` for
+    the actual checker class; ``params`` / ``thresholds`` are passed in.
+    """
+
+    __tablename__ = "deep_check_definitions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # NULL = global definition applied to every cluster.
+    cluster_id = Column(UUID(as_uuid=True), ForeignKey("clusters.id"), nullable=True)
+
+    check_type = Column(String(64), nullable=False)  # matches registry key
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    schedule_cron = Column(String(120), nullable=True)  # optional per-definition override
+    thresholds = Column(JSONB, nullable=True)  # {warning: ..., critical: ...}
+    params = Column(JSONB, nullable=True)      # checker-specific params
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    cluster = relationship("Cluster", backref="deep_check_definitions")
+
+    def __repr__(self):
+        return f"<DeepCheckDefinition(name={self.name}, type={self.check_type})>"
 
 
 class DeepCheckResult(Base):

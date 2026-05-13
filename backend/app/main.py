@@ -476,6 +476,22 @@ def _seed_default_metric_cards():
         db.close()
 
 
+def _seed_default_deep_check_definitions():
+    """Seed default deep check definitions if the table is empty."""
+    from app.models.deep_check import DeepCheckDefinition
+    from app.services.deep_checkers.registry import DEFAULT_DEFINITIONS
+
+    db = SessionLocal()
+    try:
+        if db.query(DeepCheckDefinition).count() > 0:
+            return
+        for spec in DEFAULT_DEFINITIONS:
+            db.add(DeepCheckDefinition(**spec))
+        db.commit()
+    finally:
+        db.close()
+
+
 def _seed_default_trend_sources():
     """기본 트렌드 수집 소스 등록 (최초 1회)"""
     from app.models.trend import TrendSource
@@ -644,6 +660,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_default_metric_cards()
+    _seed_default_deep_check_definitions()
     _seed_default_trend_sources()
     _seed_default_playbooks()
     _seed_initial_admin()
