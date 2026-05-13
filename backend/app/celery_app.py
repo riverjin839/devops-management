@@ -197,6 +197,8 @@ def run_review_and_notify(self, daily_check_log_id: str):
     from app.database import SessionLocal
     from app.services.review_service import review_service
 
+    from app.services.notifier import notifier_service
+
     db = SessionLocal()
     try:
         loop = asyncio.new_event_loop()
@@ -207,10 +209,24 @@ def run_review_and_notify(self, daily_check_log_id: str):
             )
         finally:
             loop.close()
+        try:
+            notif_logs = notifier_service.dispatch_for_log(db, daily_check_log_id)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Notification fan-out failed for %s", daily_check_log_id
+            )
+            notif_logs = []
         return {
             "daily_check_log_id": daily_check_log_id,
             "ai_status": result.ai_status.value if result.ai_status else None,
             "has_remediation": bool(result.ai_remediation),
+            "notifications_sent": sum(
+                1 for r in notif_logs if r.status.value == "ok"
+            ),
+            "notifications_failed": sum(
+                1 for r in notif_logs if r.status.value == "failed"
+            ),
         }
     finally:
         db.close()

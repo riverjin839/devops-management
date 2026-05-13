@@ -8,6 +8,13 @@ from app.models.deep_check import (
     DeepCheckSource,
     AiReviewStatus,
 )
+from app.models.notification import (
+    NotificationChannel,
+    NotificationChannelType,
+    NotificationLog,
+    NotificationSeverity,
+    NotificationStatus,
+)
 from app.models.playbook import Playbook
 from app.models.ansible_assets import AnsiblePlaybookFile, AnsibleInventory
 from app.models.metric_card import MetricCard
@@ -40,6 +47,11 @@ __all__ = [
     "DeepCheckResult",
     "DeepCheckSource",
     "AiReviewStatus",
+    "NotificationChannel",
+    "NotificationChannelType",
+    "NotificationLog",
+    "NotificationSeverity",
+    "NotificationStatus",
     "Playbook",
     "AnsiblePlaybookFile",
     "AnsibleInventory",

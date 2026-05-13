@@ -694,6 +694,29 @@ export const deepCheckApi = {
     api.get<import('@/types').TrendPoint[]>(`/deep-check/trend/${clusterId}`, { params: { days } }),
 };
 
+// Notification Channels API
+export const notificationsApi = {
+  listChannels: (clusterId?: string) =>
+    api.get<import('@/types').NotificationChannel[]>('/notifications/channels', {
+      params: clusterId ? { cluster_id: clusterId } : {},
+    }),
+  createChannel: (payload: import('@/types').NotificationChannelCreate) =>
+    api.post<import('@/types').NotificationChannel>('/notifications/channels', payload),
+  updateChannel: (id: string, payload: import('@/types').NotificationChannelUpdate) =>
+    api.put<import('@/types').NotificationChannel>(`/notifications/channels/${id}`, payload),
+  deleteChannel: (id: string) => api.delete<void>(`/notifications/channels/${id}`),
+  testChannel: (id: string) =>
+    api.post<import('@/types').NotificationLog>(
+      `/notifications/test/${id}`,
+      undefined,
+      { timeout: 30000 },
+    ),
+  listLogs: (channelId?: string, limit = 50) =>
+    api.get<import('@/types').NotificationLog[]>('/notifications/log', {
+      params: { channel_id: channelId, limit },
+    }),
+};
+
 // PromQL Metric Cards API
 export const promqlApi = {
   getCards: (category?: string) =>

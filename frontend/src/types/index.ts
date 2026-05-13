@@ -1716,6 +1716,54 @@ export interface TrendPoint {
   warningCount: number;
 }
 
+// ── Notification Channels (Phase 4) ─────────────────────────────────────
+
+export type NotificationChannelType = 'slack' | 'email' | 'webhook' | 'k8s_event';
+export type NotificationSeverity = 'healthy' | 'warning' | 'critical';
+export type NotificationDeliveryStatus = 'ok' | 'failed' | 'skipped';
+
+export interface NotificationChannel {
+  id: string;
+  clusterId?: string | null;
+  name: string;
+  type: NotificationChannelType;
+  enabled: boolean;
+  minSeverity: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationChannelCreate {
+  clusterId?: string | null;
+  name: string;
+  type: NotificationChannelType;
+  enabled?: boolean;
+  minSeverity?: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+}
+
+export interface NotificationChannelUpdate {
+  name?: string;
+  enabled?: boolean;
+  minSeverity?: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+}
+
+export interface NotificationLog {
+  id: string;
+  channelId: string;
+  dailyCheckLogId?: string | null;
+  status: NotificationDeliveryStatus;
+  severity?: NotificationSeverity | null;
+  subject?: string | null;
+  error?: string | null;
+  sentAt: string;
+}
+
 export interface DeepCheckReview {
   id: string;
   clusterId: string;

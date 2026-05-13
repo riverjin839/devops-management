@@ -5,6 +5,7 @@ import { MacCard } from '@/components/ui/MacCard';
 import {
   DeepCheckDefinitionForm,
   DeepCheckDefinitionList,
+  NotificationSettingsPanel,
 } from '@/components/daily-check';
 import {
   useCheckTypes,
@@ -93,7 +94,8 @@ export function DeepCheckSettingsPage() {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-5 py-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <main className="max-w-[1400px] mx-auto px-5 py-5 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <MacCard title="등록된 Deep Check" bodyPadding="p-4" rootClassName="min-w-0">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-6">불러오는 중...</p>
@@ -146,6 +148,13 @@ export function DeepCheckSettingsPage() {
               왼쪽 목록에서 항목을 골라 편집하거나 "추가" 버튼으로 새 정의를 만드세요.
             </p>
           )}
+        </MacCard>
+        </div>
+
+        <MacCard title="알림 채널" bodyPadding="p-4">
+          <NotificationSettingsPanel
+            clusters={clusters.map((c) => ({ id: c.id, name: c.name }))}
+          />
         </MacCard>
       </main>
     </div>

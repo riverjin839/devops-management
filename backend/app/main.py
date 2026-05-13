@@ -15,6 +15,7 @@ from app.routers import (
     daily_check_router,
     deep_check_router,
     deep_check_public_router,
+    notifications_router,
     health_router,
     history_router,
     issues_router,
@@ -712,6 +713,7 @@ app.include_router(clusters_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(history_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(daily_check_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(deep_check_router, prefix="/api/v1", dependencies=_auth)
+app.include_router(notifications_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(playbooks_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(agent_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(promql_router, prefix="/api/v1", dependencies=_auth)
