@@ -187,6 +187,35 @@ def run_batch_job(self, job_id: str, *, password: str | None = None, private_key
         db.close()
 
 
+@celery_app.task(bind=True, name="app.celery_app.run_review_and_notify")
+def run_review_and_notify(self, daily_check_log_id: str):
+    """Generate the AI review for a daily check log and persist it.
+
+    Phase 1: only AI review (Ollama summary + remediation + diff). Phase 4
+    will extend this task to fan out notifications.
+    """
+    from app.database import SessionLocal
+    from app.services.review_service import review_service
+
+    db = SessionLocal()
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(
+                review_service.review_and_persist(db, daily_check_log_id)
+            )
+        finally:
+            loop.close()
+        return {
+            "daily_check_log_id": daily_check_log_id,
+            "ai_status": result.ai_status.value if result.ai_status else None,
+            "has_remediation": bool(result.ai_remediation),
+        }
+    finally:
+        db.close()
+
+
 @celery_app.task(bind=True, name="app.celery_app.run_single_check")
 def run_single_check(self, cluster_id: str):
     """단일 클러스터 체크 실행 (수동)"""

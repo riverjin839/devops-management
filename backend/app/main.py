@@ -13,6 +13,7 @@ from app.routers import (
     agent_router,
     clusters_router,
     daily_check_router,
+    deep_check_router,
     health_router,
     history_router,
     issues_router,
@@ -690,6 +691,7 @@ _auth = [Depends(get_current_user)]
 app.include_router(clusters_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(history_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(daily_check_router, prefix="/api/v1", dependencies=_auth)
+app.include_router(deep_check_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(playbooks_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(agent_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(promql_router, prefix="/api/v1", dependencies=_auth)

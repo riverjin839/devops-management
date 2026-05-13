@@ -641,6 +641,31 @@ export const agentApi = {
     api.get<AgentHealthResponse>('/agent/health', { timeout: 5000 }),
 };
 
+// Daily Check API (minimal — used by deep-check review UI)
+export const dailyCheckApi = {
+  /** Latest DailyCheckLog for a cluster — used to drive AI review on dashboard. */
+  getLatest: (clusterId: string) =>
+    api.get<import('@/types').DailyCheckLog>(`/daily-check/results/${clusterId}/latest`),
+  runManual: (clusterId: string) =>
+    api.post<import('@/types').DailyCheckLog>(`/daily-check/run/${clusterId}`),
+};
+
+// Deep Check / AI Review API (Phase 1 — review only)
+export const deepCheckApi = {
+  /** Returns cached AI review or computes it inline. Long timeout — Ollama can be slow. */
+  getReview: (dailyCheckLogId: string) =>
+    api.get<import('@/types').DeepCheckReview>(
+      `/deep-check/review/${dailyCheckLogId}`,
+      { timeout: 180000 },
+    ),
+  recomputeReview: (dailyCheckLogId: string) =>
+    api.post<import('@/types').DeepCheckReview>(
+      `/deep-check/review/${dailyCheckLogId}/recompute`,
+      undefined,
+      { timeout: 180000 },
+    ),
+};
+
 // PromQL Metric Cards API
 export const promqlApi = {
   getCards: (category?: string) =>

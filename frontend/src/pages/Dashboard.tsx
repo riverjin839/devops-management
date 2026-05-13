@@ -10,6 +10,7 @@ import {
   AddMetricCardModal,
   KubeconfigEditModal,
   KanbanSummaryCharts,
+  AiSummaryCard,
 } from '@/components/dashboard';
 import { PlaybookCard, AddPlaybookModal, RunCredsModal } from '@/components/playbooks';
 import type { PlaybookSshCreds } from '@/types';
@@ -378,6 +379,11 @@ export function Dashboard() {
             </>
           )}
         </MacCard>
+
+        {/* ── AI 일일 점검 리뷰 — 선택된 클러스터의 최근 daily-check 결과를 Ollama 가 요약. */}
+        {selectedClusterId !== null && (
+          <AiSummaryCard clusterId={selectedClusterId} />
+        )}
 
         {/* ── Prometheus Insights (우측 컬럼) ─────────────────────────────── */}
         <MacCard title="Prometheus Insights" bodyPadding="p-4" className="overflow-hidden" rootClassName="min-w-0">
