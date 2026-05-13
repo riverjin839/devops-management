@@ -19,6 +19,10 @@ class BatchJobBase(BaseModel):
 
 class BatchJobCreate(BatchJobBase):
     cluster_id: UUID
+    # Plaintext credentials supplied at create-time. Encrypted at-rest by the
+    # router. Required when ``cron`` is set; ignored otherwise.
+    default_password: Optional[str] = Field(default=None, repr=False)
+    default_private_key: Optional[str] = Field(default=None, repr=False)
 
 
 class BatchJobUpdate(BaseModel):
@@ -30,6 +34,10 @@ class BatchJobUpdate(BaseModel):
     params: Optional[dict[str, Any]] = None
     cron: Optional[str] = None
     enabled: Optional[bool] = None
+    # New plaintext value to encrypt and persist. Use empty string "" to clear.
+    # Leave field unset to keep existing value.
+    default_password: Optional[str] = Field(default=None, repr=False)
+    default_private_key: Optional[str] = Field(default=None, repr=False)
 
 
 class BatchJobResponse(BatchJobBase):
@@ -39,6 +47,10 @@ class BatchJobResponse(BatchJobBase):
     last_run_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    # Booleans (not the encrypted blobs) — UI uses these to render
+    # "credentials saved" badges and a clear button.
+    has_default_password: bool = False
+    has_default_private_key: bool = False
 
     class Config:
         from_attributes = True

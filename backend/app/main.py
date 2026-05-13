@@ -394,6 +394,14 @@ def _run_migrations():
                         conn.execute(text("ALTER TABLE node_server_specs ALTER COLUMN disk_type TYPE VARCHAR(255)"))
                 break
 
+    # BatchJob: encrypted credentials for scheduled execution
+    if "batch_jobs" in inspector.get_table_names():
+        bj_cols = [c["name"] for c in inspector.get_columns("batch_jobs")]
+        for col_name in ("default_password_enc", "default_private_key_enc"):
+            if col_name not in bj_cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE batch_jobs ADD COLUMN {col_name} TEXT"))
+
 
 def _seed_default_metric_cards():
     """Seed default PromQL metric cards if the table is empty."""

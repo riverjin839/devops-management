@@ -8,7 +8,7 @@ template (target host, parameters, schedule) and execution history.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -27,17 +27,24 @@ class BatchJob(Base):
     # (e.g. "etcdctl_defrag", "etcdctl_snapshot", ...)
     job_type = Column(String(80), nullable=False)
 
-    # Default target host/credentials are NOT stored; only the host hint is.
-    # Credentials must be supplied per-run in the API payload (same pattern as
-    # routers/etcdctl.py).
+    # Default target host. Credentials below are optional — only required when
+    # this job is scheduled (cron set), since the Celery tick scheduler has no
+    # API request to carry them. Manual runs still pass creds in the payload.
     default_host = Column(String(255), nullable=True)
     default_port = Column(Integer, default=22)
     default_username = Column(String(100), default="root")
 
+    # Encrypted-at-rest credentials for scheduled execution. Plaintext NEVER
+    # leaves services/secrets.py. NULL = no scheduled creds → scheduler will
+    # skip this job and log a warning.
+    default_password_enc = Column(Text, nullable=True)
+    default_private_key_enc = Column(Text, nullable=True)
+
     # Per-job_type parameters — schema validated by the executor
     params = Column(JSONB, nullable=True)
 
-    # cron expression (optional) — if set, Celery Beat picks it up
+    # cron expression (optional) — if set, the tick scheduler dispatches
+    # run_batch_job.delay() at each matching minute.
     cron = Column(String(80), nullable=True)
     enabled = Column(Boolean, default=True)
 

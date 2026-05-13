@@ -3,6 +3,7 @@ import {
   batchJobsApi,
   type BatchJobCreate,
   type BatchJobRunRequest,
+  type BatchJobUpdate,
 } from '@/services/api';
 
 export const batchJobKeys = {
@@ -57,7 +58,7 @@ export function useCreateBatchJob() {
 export function useUpdateBatchJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<BatchJobCreate> }) =>
+    mutationFn: ({ id, data }: { id: string; data: BatchJobUpdate }) =>
       batchJobsApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: batchJobKeys.all }),
   });
@@ -67,6 +68,14 @@ export function useDeleteBatchJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => batchJobsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: batchJobKeys.all }),
+  });
+}
+
+export function useClearBatchJobCredentials() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => batchJobsApi.clearCredentials(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: batchJobKeys.all }),
   });
 }

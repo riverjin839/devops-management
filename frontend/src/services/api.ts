@@ -1169,6 +1169,10 @@ export interface BatchJob {
   enabled: boolean;
   lastStatus: string;
   lastRunAt?: string | null;
+  /** True when an encrypted password is stored for scheduled execution. */
+  hasDefaultPassword: boolean;
+  /** True when an encrypted private key is stored for scheduled execution. */
+  hasDefaultPrivateKey: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -1185,6 +1189,24 @@ export interface BatchJobCreate {
   params?: Record<string, any>;
   cron?: string;
   enabled?: boolean;
+  /** Plaintext credential for scheduled execution. Encrypted at rest. */
+  defaultPassword?: string;
+  defaultPrivateKey?: string;
+}
+
+export interface BatchJobUpdate {
+  name?: string;
+  description?: string;
+  defaultHost?: string;
+  defaultPort?: number;
+  defaultUsername?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any>;
+  cron?: string;
+  enabled?: boolean;
+  /** Empty string clears, non-empty re-encrypts, unset leaves the stored value alone. */
+  defaultPassword?: string;
+  defaultPrivateKey?: string;
 }
 
 export interface BatchJobRunRequest {
@@ -1221,8 +1243,9 @@ export const batchJobsApi = {
     api.get<{ data: BatchJob[] }>('/batch-jobs', { params }),
   get: (id: string) => api.get<BatchJob>(`/batch-jobs/${id}`),
   create: (data: BatchJobCreate) => api.post<BatchJob>('/batch-jobs', data),
-  update: (id: string, data: Partial<BatchJobCreate>) => api.put<BatchJob>(`/batch-jobs/${id}`, data),
+  update: (id: string, data: BatchJobUpdate) => api.put<BatchJob>(`/batch-jobs/${id}`, data),
   delete: (id: string) => api.delete(`/batch-jobs/${id}`),
+  clearCredentials: (id: string) => api.delete<BatchJob>(`/batch-jobs/${id}/credentials`),
   run: (id: string, payload: BatchJobRunRequest, signal?: AbortSignal) =>
     api.post<BatchJobRun>(`/batch-jobs/${id}/run`, payload, { signal, timeout: 600000 }),
   listRuns: (id: string, limit = 50) =>
