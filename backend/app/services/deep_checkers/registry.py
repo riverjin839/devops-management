@@ -11,18 +11,23 @@ from typing import Iterable, Optional
 
 from app.services.deep_checkers.base import DeepBaseChecker
 from app.services.deep_checkers.crash_loop_checker import CrashLoopChecker
+from app.services.deep_checkers.cronjob_health_checker import CronJobHealthChecker
 from app.services.deep_checkers.daemonset_coverage_checker import DaemonSetCoverageChecker
 from app.services.deep_checkers.deployment_progress_checker import DeploymentProgressChecker
 from app.services.deep_checkers.endpoint_health_checker import EndpointHealthChecker
 from app.services.deep_checkers.event_burst_checker import EventBurstChecker
 from app.services.deep_checkers.hpa_health_checker import HpaHealthChecker
 from app.services.deep_checkers.image_pull_checker import ImagePullChecker
+from app.services.deep_checkers.job_failure_checker import JobFailureChecker
 from app.services.deep_checkers.node_pressure_checker import NodePressureChecker
 from app.services.deep_checkers.oom_kill_checker import OomKillChecker
+from app.services.deep_checkers.pdb_violation_checker import PdbViolationChecker
 from app.services.deep_checkers.pvc_health_checker import PvcHealthChecker
+from app.services.deep_checkers.resource_quota_pressure_checker import ResourceQuotaPressureChecker
 from app.services.deep_checkers.stuck_namespace_checker import StuckNamespaceChecker
 from app.services.deep_checkers.tls_secret_expiry_checker import TlsSecretExpiryChecker
 from app.services.deep_checkers.unscheduled_pods_checker import UnscheduledPodsChecker
+from app.services.deep_checkers.webhook_health_checker import WebhookHealthChecker
 
 
 _REGISTRY: dict[str, type[DeepBaseChecker]] = {
@@ -41,6 +46,11 @@ _REGISTRY: dict[str, type[DeepBaseChecker]] = {
         StuckNamespaceChecker,
         EventBurstChecker,
         EndpointHealthChecker,
+        PdbViolationChecker,
+        JobFailureChecker,
+        CronJobHealthChecker,
+        ResourceQuotaPressureChecker,
+        WebhookHealthChecker,
     )
 }
 
@@ -172,5 +182,45 @@ DEFAULT_DEFINITIONS = [
         "thresholds": EndpointHealthChecker.default_thresholds,
         "params": EndpointHealthChecker.default_params,
         "sort_order": 130,
+    },
+    {
+        "check_type": "pdb_violation",
+        "name": "PDB 위반 점검",
+        "description": "currentHealthy<desiredHealthy 또는 disruptionsAllowed=0",
+        "thresholds": PdbViolationChecker.default_thresholds,
+        "params": PdbViolationChecker.default_params,
+        "sort_order": 140,
+    },
+    {
+        "check_type": "job_failure",
+        "name": "Failed Job 점검",
+        "description": "윈도우 내 status.failed>0 인 Job",
+        "thresholds": JobFailureChecker.default_thresholds,
+        "params": JobFailureChecker.default_params,
+        "sort_order": 150,
+    },
+    {
+        "check_type": "cronjob_health",
+        "name": "CronJob Health 점검",
+        "description": "Suspended 또는 last_successful_time 이 임계 이상 지난 CronJob",
+        "thresholds": CronJobHealthChecker.default_thresholds,
+        "params": CronJobHealthChecker.default_params,
+        "sort_order": 160,
+    },
+    {
+        "check_type": "resource_quota_pressure",
+        "name": "ResourceQuota Pressure 점검",
+        "description": "ResourceQuota used/hard 비율이 warning_pct/critical_pct 초과",
+        "thresholds": ResourceQuotaPressureChecker.default_thresholds,
+        "params": ResourceQuotaPressureChecker.default_params,
+        "sort_order": 170,
+    },
+    {
+        "check_type": "webhook_health",
+        "name": "Admission Webhook Health 점검",
+        "description": "Validating/MutatingWebhookConfiguration 의 Service / endpoint 유효성",
+        "thresholds": WebhookHealthChecker.default_thresholds,
+        "params": WebhookHealthChecker.default_params,
+        "sort_order": 180,
     },
 ]
