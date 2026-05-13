@@ -15,6 +15,7 @@ Core capabilities:
 - AI Agent chat powered by a local Ollama LLM (optional, fail-safe)
 - Ansible Playbook execution per cluster
 - Air-gapped / closed-network deployment support
+- **DevOps Super Pod** — deep checks (PVC/ImagePull/CrashLoop today, plus more via a DB-driven definition catalog editable in the UI) run either in the management cluster against stored kubeconfigs *or* as in-cluster `CronJob`s pushing results back via a bearer-token ingest endpoint. Every daily check is followed by an Ollama-powered AI review (summary + remediation + 24h diff + 7-day trend) that fans out to user-configured Slack / Email / Webhook / K8s Event channels.
 
 ---
 
@@ -492,6 +493,32 @@ All shared interfaces live in `src/types/index.ts`. Keep backend response shapes
 | GET | `/agent/health` | Ollama availability probe |
 | POST | `/agent/pull-model` | Trigger model download |
 | GET | `/agent/models` | List available models |
+
+### Deep Check + AI Review (Super Pod)
+| Method | Path | Description |
+|---|---|---|
+| GET | `/deep-check/review/{daily_check_log_id}` | AI summary + 24h diff + remediation (computes inline if missing) |
+| POST | `/deep-check/review/{daily_check_log_id}/recompute` | Force a fresh AI review |
+| GET | `/deep-check/check-types` | Available checker types + UI form schema |
+| GET | `/deep-check/definitions` | List `DeepCheckDefinition` rows (`cluster_id` query param filters scope) |
+| POST | `/deep-check/definitions` | Create a definition |
+| PUT | `/deep-check/definitions/{id}` | Update a definition |
+| DELETE | `/deep-check/definitions/{id}` | Delete a definition |
+| POST | `/deep-check/definitions/{id}/test?cluster_id=...` | Run one checker against a cluster, no persistence |
+| POST | `/deep-check/run/{cluster_id}` | Trigger an immediate centralized deep check |
+| GET | `/deep-check/results/{cluster_id}/latest` | Latest `DeepCheckResult` |
+| GET | `/deep-check/trend/{cluster_id}?days=7` | Time-series for the trend chart |
+| POST | `/deep-check/ingest` (public) | In-cluster super pod pushes results; bearer-token auth via `SUPERPOD_INGEST_TOKEN` |
+
+### Notification Channels
+| Method | Path | Description |
+|---|---|---|
+| GET | `/notifications/channels` | List channels (`cluster_id` query filter) |
+| POST | `/notifications/channels` | Create channel (type: `slack` \| `email` \| `webhook` \| `k8s_event`) |
+| PUT | `/notifications/channels/{id}` | Update channel |
+| DELETE | `/notifications/channels/{id}` | Delete channel |
+| POST | `/notifications/test/{id}` | Send a synthetic warning to the channel and record a `NotificationLog` |
+| GET | `/notifications/log` | Audit log (`channel_id` query filter) |
 
 ### App Health Probes (no `/api/v1` prefix)
 | Method | Path | Description |

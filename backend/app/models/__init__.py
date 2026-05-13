@@ -2,6 +2,19 @@ from app.models.cluster import Cluster, StatusEnum
 from app.models.addon import Addon
 from app.models.check_log import CheckLog
 from app.models.daily_check import DailyCheckLog, CheckSchedule, CheckScheduleType
+from app.models.deep_check import (
+    DeepCheckDefinition,
+    DeepCheckResult,
+    DeepCheckSource,
+    AiReviewStatus,
+)
+from app.models.notification import (
+    NotificationChannel,
+    NotificationChannelType,
+    NotificationLog,
+    NotificationSeverity,
+    NotificationStatus,
+)
 from app.models.playbook import Playbook
 from app.models.ansible_assets import AnsiblePlaybookFile, AnsibleInventory
 from app.models.metric_card import MetricCard
@@ -30,6 +43,15 @@ __all__ = [
     "DailyCheckLog",
     "CheckSchedule",
     "CheckScheduleType",
+    "DeepCheckDefinition",
+    "DeepCheckResult",
+    "DeepCheckSource",
+    "AiReviewStatus",
+    "NotificationChannel",
+    "NotificationChannelType",
+    "NotificationLog",
+    "NotificationSeverity",
+    "NotificationStatus",
     "Playbook",
     "AnsiblePlaybookFile",
     "AnsibleInventory",

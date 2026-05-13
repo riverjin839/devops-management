@@ -641,6 +641,82 @@ export const agentApi = {
     api.get<AgentHealthResponse>('/agent/health', { timeout: 5000 }),
 };
 
+// Daily Check API (minimal — used by deep-check review UI)
+export const dailyCheckApi = {
+  /** Latest DailyCheckLog for a cluster — used to drive AI review on dashboard. */
+  getLatest: (clusterId: string) =>
+    api.get<import('@/types').DailyCheckLog>(`/daily-check/results/${clusterId}/latest`),
+  runManual: (clusterId: string) =>
+    api.post<import('@/types').DailyCheckLog>(`/daily-check/run/${clusterId}`),
+};
+
+// Deep Check / AI Review API
+export const deepCheckApi = {
+  /** Returns cached AI review or computes it inline. Long timeout — Ollama can be slow. */
+  getReview: (dailyCheckLogId: string) =>
+    api.get<import('@/types').DeepCheckReview>(
+      `/deep-check/review/${dailyCheckLogId}`,
+      { timeout: 180000 },
+    ),
+  recomputeReview: (dailyCheckLogId: string) =>
+    api.post<import('@/types').DeepCheckReview>(
+      `/deep-check/review/${dailyCheckLogId}/recompute`,
+      undefined,
+      { timeout: 180000 },
+    ),
+  // Phase 2 — execution
+  runDeepCheck: (clusterId: string) =>
+    api.post<import('@/types').DeepCheckReview>(`/deep-check/run/${clusterId}`, undefined, {
+      timeout: 180000,
+    }),
+  getLatestResult: (clusterId: string) =>
+    api.get<import('@/types').DeepCheckReview | null>(`/deep-check/results/${clusterId}/latest`),
+  // Phase 3 — definitions CRUD + check-type catalog + test + trend
+  getCheckTypes: () =>
+    api.get<import('@/types').DeepCheckTypeSchema[]>('/deep-check/check-types'),
+  listDefinitions: (clusterId?: string, enabledOnly = false) =>
+    api.get<import('@/types').DeepCheckDefinition[]>('/deep-check/definitions', {
+      params: { cluster_id: clusterId, enabled_only: enabledOnly },
+    }),
+  createDefinition: (payload: import('@/types').DeepCheckDefinitionCreate) =>
+    api.post<import('@/types').DeepCheckDefinition>('/deep-check/definitions', payload),
+  updateDefinition: (id: string, payload: import('@/types').DeepCheckDefinitionUpdate) =>
+    api.put<import('@/types').DeepCheckDefinition>(`/deep-check/definitions/${id}`, payload),
+  deleteDefinition: (id: string) =>
+    api.delete<void>(`/deep-check/definitions/${id}`),
+  testDefinition: (id: string, clusterId: string) =>
+    api.post<import('@/types').DeepCheckTestResult>(
+      `/deep-check/definitions/${id}/test`,
+      undefined,
+      { params: { cluster_id: clusterId }, timeout: 120000 },
+    ),
+  getTrend: (clusterId: string, days = 7) =>
+    api.get<import('@/types').TrendPoint[]>(`/deep-check/trend/${clusterId}`, { params: { days } }),
+};
+
+// Notification Channels API
+export const notificationsApi = {
+  listChannels: (clusterId?: string) =>
+    api.get<import('@/types').NotificationChannel[]>('/notifications/channels', {
+      params: clusterId ? { cluster_id: clusterId } : {},
+    }),
+  createChannel: (payload: import('@/types').NotificationChannelCreate) =>
+    api.post<import('@/types').NotificationChannel>('/notifications/channels', payload),
+  updateChannel: (id: string, payload: import('@/types').NotificationChannelUpdate) =>
+    api.put<import('@/types').NotificationChannel>(`/notifications/channels/${id}`, payload),
+  deleteChannel: (id: string) => api.delete<void>(`/notifications/channels/${id}`),
+  testChannel: (id: string) =>
+    api.post<import('@/types').NotificationLog>(
+      `/notifications/test/${id}`,
+      undefined,
+      { timeout: 30000 },
+    ),
+  listLogs: (channelId?: string, limit = 50) =>
+    api.get<import('@/types').NotificationLog[]>('/notifications/log', {
+      params: { channel_id: channelId, limit },
+    }),
+};
+
 // PromQL Metric Cards API
 export const promqlApi = {
   getCards: (category?: string) =>

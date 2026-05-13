@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Download, BookOpen, Plus, Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle, Server, WifiOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Download, BookOpen, Plus, Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle, Server, WifiOff, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import {
   SummaryStats,
@@ -10,6 +11,7 @@ import {
   AddMetricCardModal,
   KubeconfigEditModal,
   KanbanSummaryCharts,
+  AiSummaryCard,
 } from '@/components/dashboard';
 import { PlaybookCard, AddPlaybookModal, RunCredsModal } from '@/components/playbooks';
 import type { PlaybookSshCreds } from '@/types';
@@ -306,6 +308,22 @@ export function Dashboard() {
               Kubeconfig
             </button>
           )}
+          {selectedClusterId && (
+            <Link
+              to={`/daily-check/review/${selectedClusterId}`}
+              className="px-2.5 py-1 text-xs font-medium bg-secondary hover:bg-secondary/80 border border-border rounded-lg transition-colors flex items-center gap-1"
+              title="일일 점검 리뷰 (AI + trend + deep checks)"
+            >
+              <Sparkles className="w-3 h-3" /> Review
+            </Link>
+          )}
+          <Link
+            to="/daily-check/settings"
+            className="px-2.5 py-1 text-xs font-medium bg-secondary hover:bg-secondary/80 border border-border rounded-lg transition-colors flex items-center gap-1"
+            title="Deep Check 정의 관리"
+          >
+            <SettingsIcon className="w-3 h-3" /> Deep Check
+          </Link>
           <div className="w-px h-4 bg-border mx-0.5" />
           <button
             onClick={handleRunCheck}
@@ -378,6 +396,11 @@ export function Dashboard() {
             </>
           )}
         </MacCard>
+
+        {/* ── AI 일일 점검 리뷰 — 선택된 클러스터의 최근 daily-check 결과를 Ollama 가 요약. */}
+        {selectedClusterId !== null && (
+          <AiSummaryCard clusterId={selectedClusterId} />
+        )}
 
         {/* ── Prometheus Insights (우측 컬럼) ─────────────────────────────── */}
         <MacCard title="Prometheus Insights" bodyPadding="p-4" className="overflow-hidden" rootClassName="min-w-0">

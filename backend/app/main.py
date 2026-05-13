@@ -13,6 +13,9 @@ from app.routers import (
     agent_router,
     clusters_router,
     daily_check_router,
+    deep_check_router,
+    deep_check_public_router,
+    notifications_router,
     health_router,
     history_router,
     issues_router,
@@ -475,6 +478,22 @@ def _seed_default_metric_cards():
         db.close()
 
 
+def _seed_default_deep_check_definitions():
+    """Seed default deep check definitions if the table is empty."""
+    from app.models.deep_check import DeepCheckDefinition
+    from app.services.deep_checkers.registry import DEFAULT_DEFINITIONS
+
+    db = SessionLocal()
+    try:
+        if db.query(DeepCheckDefinition).count() > 0:
+            return
+        for spec in DEFAULT_DEFINITIONS:
+            db.add(DeepCheckDefinition(**spec))
+        db.commit()
+    finally:
+        db.close()
+
+
 def _seed_default_trend_sources():
     """기본 트렌드 수집 소스 등록 (최초 1회)"""
     from app.models.trend import TrendSource
@@ -643,6 +662,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _run_migrations()
     _seed_default_metric_cards()
+    _seed_default_deep_check_definitions()
     _seed_default_trend_sources()
     _seed_default_playbooks()
     _seed_initial_admin()
@@ -684,12 +704,16 @@ app.add_middleware(
 # Public routers (no auth) — login + liveness/readiness probes.
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
+# Public super-pod ingest — bearer-token auth handled inside the router.
+app.include_router(deep_check_public_router, prefix="/api/v1")
 
 # Protected routers — every endpoint below requires a valid JWT.
 _auth = [Depends(get_current_user)]
 app.include_router(clusters_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(history_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(daily_check_router, prefix="/api/v1", dependencies=_auth)
+app.include_router(deep_check_router, prefix="/api/v1", dependencies=_auth)
+app.include_router(notifications_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(playbooks_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(agent_router, prefix="/api/v1", dependencies=_auth)
 app.include_router(promql_router, prefix="/api/v1", dependencies=_auth)

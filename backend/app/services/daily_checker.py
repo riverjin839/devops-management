@@ -7,6 +7,7 @@
 """
 import subprocess
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Optional
@@ -15,6 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Cluster, DailyCheckLog, CheckScheduleType, StatusEnum
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class DailyChecker:
@@ -84,7 +87,23 @@ class DailyChecker:
         self.db.commit()
         self.db.refresh(check_log)
 
+        self._trigger_review(check_log.id)
+
         return check_log
+
+    @staticmethod
+    def _trigger_review(check_log_id) -> None:
+        """Queue an AI review for this check log. Never raises.
+
+        Imported lazily to avoid a circular import with ``celery_app`` (which
+        itself imports this service inside its task bodies).
+        """
+        try:
+            from app.celery_app import run_review_and_notify
+
+            run_review_and_notify.delay(str(check_log_id))
+        except Exception:
+            logger.exception("Failed to schedule AI review for %s", check_log_id)
 
     async def _check_api_server(self, cluster: Cluster) -> dict:
         """API 서버 헬스 체크"""

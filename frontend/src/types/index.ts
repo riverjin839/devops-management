@@ -1587,3 +1587,198 @@ export interface ServiceCatalogItem {
 }
 export interface ServiceCatalogResponse { services: ServiceCatalogItem[] }
 export interface ServiceEntryListResponse { data: ServiceEntry[]; total: number }
+
+// ── Daily Check / Deep Check Review ─────────────────────────────────────
+
+export type DailyCheckScheduleType = 'morning' | 'noon' | 'evening' | 'manual';
+
+export interface DailyCheckLog {
+  id: string;
+  clusterId: string;
+  scheduleType: DailyCheckScheduleType;
+  checkDate: string;
+  overallStatus: Status;
+  apiServerStatus: Status;
+  apiServerResponseTimeMs?: number | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiServerDetails?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  componentsStatus?: Record<string, any> | null;
+  totalNodes: number;
+  readyNodes: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  nodesStatus?: Array<Record<string, any>> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  systemPodsStatus?: Array<Record<string, any>> | null;
+  errorMessages?: string[] | null;
+  warningMessages?: string[] | null;
+  checkedAt: string;
+  checkDurationSeconds?: number | null;
+}
+
+export type AiReviewStatus = 'pending' | 'ok' | 'offline' | 'error';
+
+export interface RemediationStep {
+  title: string;
+  command?: string | null;
+  description?: string | null;
+}
+
+export interface TrendSummary {
+  prevStatus?: Status | null;
+  statusChanged: boolean;
+  newErrors: string[];
+  resolvedErrors: string[];
+  newWarnings: string[];
+  resolvedWarnings: string[];
+  readyNodesDelta: number;
+  prevCheckedAt?: string | null;
+}
+
+export type DeepCheckParamType = 'string' | 'number' | 'boolean' | 'string[]';
+
+export interface DeepCheckParamField {
+  name: string;
+  type: DeepCheckParamType | string;
+  label: string;
+  help?: string;
+}
+
+export interface DeepCheckTypeSchema {
+  checkType: string;
+  label: string;
+  description: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultParams: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultThresholds: Record<string, any>;
+  paramSchema: DeepCheckParamField[];
+}
+
+export interface DeepCheckDefinition {
+  id: string;
+  clusterId?: string | null;
+  checkType: string;
+  name: string;
+  description?: string | null;
+  enabled: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeepCheckDefinitionCreate {
+  clusterId?: string | null;
+  checkType: string;
+  name: string;
+  description?: string | null;
+  enabled?: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder?: number;
+}
+
+export interface DeepCheckDefinitionUpdate {
+  name?: string;
+  description?: string | null;
+  enabled?: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder?: number;
+}
+
+export interface DeepCheckTestResult {
+  checkType: string;
+  status: Status;
+  message: string;
+  responseTimeMs: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  details?: Record<string, any> | null;
+}
+
+export interface TrendPoint {
+  checkedAt: string;
+  overallStatus: Status;
+  readyNodes: number;
+  totalNodes: number;
+  errorCount: number;
+  warningCount: number;
+}
+
+// ── Notification Channels (Phase 4) ─────────────────────────────────────
+
+export type NotificationChannelType = 'slack' | 'email' | 'webhook' | 'k8s_event';
+export type NotificationSeverity = 'healthy' | 'warning' | 'critical';
+export type NotificationDeliveryStatus = 'ok' | 'failed' | 'skipped';
+
+export interface NotificationChannel {
+  id: string;
+  clusterId?: string | null;
+  name: string;
+  type: NotificationChannelType;
+  enabled: boolean;
+  minSeverity: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationChannelCreate {
+  clusterId?: string | null;
+  name: string;
+  type: NotificationChannelType;
+  enabled?: boolean;
+  minSeverity?: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+}
+
+export interface NotificationChannelUpdate {
+  name?: string;
+  enabled?: boolean;
+  minSeverity?: NotificationSeverity;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any> | null;
+}
+
+export interface NotificationLog {
+  id: string;
+  channelId: string;
+  dailyCheckLogId?: string | null;
+  status: NotificationDeliveryStatus;
+  severity?: NotificationSeverity | null;
+  subject?: string | null;
+  error?: string | null;
+  sentAt: string;
+}
+
+export interface DeepCheckReview {
+  id: string;
+  clusterId: string;
+  dailyCheckLogId: string;
+  source?: 'in_cluster' | 'centralized' | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  results?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  errors?: any;
+  aiStatus: AiReviewStatus;
+  aiSummary?: string | null;
+  aiRemediation?: RemediationStep[] | null;
+  aiModel?: string | null;
+  aiError?: string | null;
+  trendSummary?: TrendSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}

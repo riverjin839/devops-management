@@ -171,6 +171,21 @@ serviceAccount:
   name: k8s-monitor-sa
 
 # ============================================
+# Deep Check / Super Pod (Phase 2)
+# ============================================
+deepcheck:
+  enabled: true
+  # Centralized CronJob schedule — runs after each daily-check Beat slot.
+  schedule: "15 9,13,18 * * *"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "768Mi"
+      cpu: "500m"
+
+# ============================================
 # Monitoring Stack (Prometheus + Grafana)
 # ============================================
 monitoring:

@@ -1,0 +1,47 @@
+{{- if .Values.deepcheck.enabled }}
+# Extra RBAC for deep checks — needed in addition to the cluster-reader
+# ClusterRole created by serviceaccount.yaml. Splitting it out keeps the
+# baseline read-only role minimal and makes the deep-check privileges
+# easy to audit / disable.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-deepcheck
+  labels:
+    {{- include "k8s-daily-monitor.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes, persistentvolumeclaims, events, configmaps, serviceaccounts]
+    verbs: [get, list, watch]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: [rolebindings, clusterrolebindings]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create, get]
+  - apiGroups: [""]
+    resources: [nodes/proxy]
+    verbs: [get]
+  # Phase 4 — emit K8s Event notifications in the management namespace.
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-deepcheck-binding
+  labels:
+    {{- include "k8s-daily-monitor.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Namespace }}-deepcheck
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
