@@ -306,26 +306,103 @@ def _bond_info_from_cluster_node_ips(cluster: Cluster, hostname: str) -> dict[st
     return out
 
 
+def _has_root_mount(node: dict) -> bool:
+    """lsblk JSON 노드를 재귀 탐색해 후손 중 '/' 마운트가 있는지 확인.
+
+    lsblk >= 2.37 은 ``mountpoints`` (list) 를, 이전 버전은 ``mountpoint``
+    (string) 를 노출. 둘 다 처리. 디스크 entry 자체는 보통 mountpoint=null
+    이고 ``/`` 는 자식 partition 에 있으므로 children 까지 내려가야 한다.
+    """
+    if not isinstance(node, dict):
+        return False
+    mps = node.get("mountpoints")
+    if isinstance(mps, list) and "/" in mps:
+        return True
+    if node.get("mountpoint") == "/":
+        return True
+    for child in node.get("children") or []:
+        if _has_root_mount(child):
+            return True
+    return False
+
+
+def _coerce_rotational(value) -> Optional[bool]:
+    """``rota`` 필드를 bool 로 변환. lsblk JSON 은 버전에 따라 ``true/false``
+    또는 ``"0"/"1"`` 문자열을 반환하므로 둘 다 지원."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s in ("0", "false", "no"):
+            return False
+        if s in ("1", "true", "yes"):
+            return True
+    return None
+
+
+_VM_VENDORS = {
+    "qemu", "vmware, inc.", "microsoft corporation", "xen",
+    "innotek gmbh", "amazon ec2", "google", "openstack foundation",
+    "redhat", "kvm", "bochs", "parallels software international inc.",
+}
+_BAREMETAL_VENDORS = {
+    "dell inc.", "lenovo", "hewlett packard enterprise", "hp",
+    "supermicro", "intel corporation", "asustek computer inc.",
+    "gigabyte technology co., ltd.", "asrock", "msi", "fujitsu",
+    "cisco systems inc.", "huawei", "inspur", "ibm",
+}
+
+
+def _detect_vm(svirt_raw: str, dmi_raw: str) -> Optional[bool]:
+    """``systemd-detect-virt`` 와 ``/sys/class/dmi/id/sys_vendor`` 두 시그널을
+    결합. DMI 가 가장 신뢰할 수 있는 인덱스라 우선시.
+    """
+    svirt = (svirt_raw or "").strip().lower()
+    dmi = (dmi_raw or "").strip().lower()
+    if dmi in _VM_VENDORS:
+        return True
+    if svirt and svirt not in ("none", "unknown", ""):
+        return True
+    if dmi in _BAREMETAL_VENDORS:
+        return False
+    if svirt == "none":
+        return False
+    return None
+
+
 def _parse_host_fact_stdout(stdout: str) -> dict:
-    """SSH 수집 결과 파싱."""
+    """SSH 수집 결과 파싱.
+
+    구성: ``ip -j addr show`` / ``lsblk -J`` / ``systemd-detect-virt`` /
+    ``/sys/class/dmi/id/sys_vendor`` 네 섹션을 ``__NODE_SPEC_SPLIT__`` 로
+    구분. 마지막 섹션(DMI vendor) 은 backward-compat 을 위해 optional 처리.
+    """
     parts = stdout.split("\n__NODE_SPEC_SPLIT__\n")
-    if len(parts) != 3:
+    if len(parts) < 3:
         raise ValueError("수집 출력 파싱 실패")
-    ip_raw, lsblk_raw, vm_raw = parts
+    ip_raw, lsblk_raw, vm_raw = parts[0], parts[1], parts[2]
+    dmi_raw = parts[3] if len(parts) > 3 else ""
     ip_data = json.loads(ip_raw.strip() or "[]")
     lsblk_data = json.loads(lsblk_raw.strip() or "{}")
-    vm_type = (vm_raw or "").strip().lower()
 
     out = {
         "bond0_ip": None, "bond0_mac": None, "bond1_ip": None, "bond1_mac": None,
-        "disk_count": 0, "disk_total_gb": 0, "non_os_disk_gb": 0, "disk_type": None, "is_ssd": None, "is_vm": None,
+        "disk_count": 0, "disk_total_gb": 0, "non_os_disk_gb": 0,
+        "disk_type": None, "is_ssd": None, "is_vm": None,
     }
     for ifc in ip_data if isinstance(ip_data, list) else []:
         name = str(ifc.get("ifname") or "").lower()
         if name not in ("bond0", "bond1"):
             continue
         addr_info = ifc.get("addr_info") or []
-        ipv4s = [a.get("local") for a in addr_info if isinstance(a, dict) and a.get("family") == "inet" and a.get("local")]
+        ipv4s = [
+            a.get("local") for a in addr_info
+            if isinstance(a, dict) and a.get("family") == "inet" and a.get("local")
+        ]
         if name == "bond0":
             out["bond0_ip"] = ipv4s[0] if ipv4s else None
             out["bond0_mac"] = ifc.get("address")
@@ -335,7 +412,8 @@ def _parse_host_fact_stdout(stdout: str) -> dict:
 
     disks = (lsblk_data or {}).get("blockdevices") or []
     types: set[str] = set()
-    ssd_flag: Optional[bool] = None
+    has_ssd = False
+    has_hdd = False
     for d in disks:
         if not isinstance(d, dict):
             continue
@@ -344,36 +422,48 @@ def _parse_host_fact_stdout(stdout: str) -> dict:
         if typ != "disk" or not name:
             continue
         size_b = int(d.get("size") or 0)
-        tran = str(d.get("tran") or "").lower()
-        mountpoint = str(d.get("mountpoint") or "")
-        model = str(d.get("model") or "").strip()
-        rota = str(d.get("rota") or "")
-        if mountpoint == "/":
-            out["disk_total_gb"] += round(size_b / (1024 ** 3))
-            continue
-        out["disk_count"] += 1
         gb = round(size_b / (1024 ** 3))
+        tran = str(d.get("tran") or "").lower()
+        model = str(d.get("model") or "").strip()
+        rota = _coerce_rotational(d.get("rota"))
+
+        is_os = _has_root_mount(d)
         out["disk_total_gb"] += gb
-        out["non_os_disk_gb"] += gb
+        if not is_os:
+            out["disk_count"] += 1
+            out["non_os_disk_gb"] += gb
+
+        # SSD/HDD 분류 — 모든 디스크(OS 포함) 를 집계해서 호스트가 SSD 를
+        # 가지고 있는지 표시. 단 disk_type 문자열은 non-OS 디스크만 모은다
+        # (OS 디스크는 별도로 표시되거나 hostname 으로 식별되므로).
         if tran == "nvme":
-            types.add(f"NVMe ({name})")
-            ssd_flag = True
-        elif tran in ("sata", "sas"):
-            if rota == "0":
+            has_ssd = True
+            if not is_os:
+                types.add(f"NVMe ({name})")
+        elif rota is False:
+            has_ssd = True
+            if not is_os:
                 types.add(f"SSD ({name})")
-                ssd_flag = True if ssd_flag is None else ssd_flag
-            elif rota == "1":
+        elif rota is True:
+            has_hdd = True
+            if not is_os:
                 types.add(f"HDD ({name})")
-                if ssd_flag is None:
-                    ssd_flag = False
         else:
-            types.add(f"{(tran or 'unknown').upper()} ({name}{', ' + model if model else ''})")
+            if not is_os:
+                label = f"{(tran or 'unknown').upper()} ({name}"
+                if model:
+                    label += f", {model}"
+                label += ")"
+                types.add(label)
+
     out["disk_type"] = " + ".join(sorted(types)) if types else None
-    out["is_ssd"] = ssd_flag
-    if vm_type and vm_type not in ("none", "no", "n/a"):
-        out["is_vm"] = True
-    elif vm_type == "none":
-        out["is_vm"] = False
+    if has_ssd:
+        out["is_ssd"] = True
+    elif has_hdd:
+        out["is_ssd"] = False
+    # else: leave None — couldn't determine
+
+    out["is_vm"] = _detect_vm(vm_raw, dmi_raw)
     return out
 
 
@@ -526,7 +616,9 @@ async def collect_host_facts(
         "echo __NODE_SPEC_SPLIT__; "
         f"{sudo}lsblk -b -J -o NAME,TYPE,MODEL,SIZE,TRAN,ROTA,MOUNTPOINT 2>/dev/null; "
         "echo __NODE_SPEC_SPLIT__; "
-        f"{sudo}systemd-detect-virt 2>/dev/null || echo none"
+        f"{sudo}systemd-detect-virt 2>/dev/null || echo none; "
+        "echo __NODE_SPEC_SPLIT__; "
+        "cat /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown"
     )
     targets = [SSHTarget(host=h, port=payload.port, username=payload.username, password=payload.password, private_key=payload.private_key) for h in payload.hosts]
     results = await run_bulk(
