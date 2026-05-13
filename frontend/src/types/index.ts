@@ -1635,6 +1635,87 @@ export interface TrendSummary {
   prevCheckedAt?: string | null;
 }
 
+export type DeepCheckParamType = 'string' | 'number' | 'boolean' | 'string[]';
+
+export interface DeepCheckParamField {
+  name: string;
+  type: DeepCheckParamType | string;
+  label: string;
+  help?: string;
+}
+
+export interface DeepCheckTypeSchema {
+  checkType: string;
+  label: string;
+  description: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultParams: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultThresholds: Record<string, any>;
+  paramSchema: DeepCheckParamField[];
+}
+
+export interface DeepCheckDefinition {
+  id: string;
+  clusterId?: string | null;
+  checkType: string;
+  name: string;
+  description?: string | null;
+  enabled: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeepCheckDefinitionCreate {
+  clusterId?: string | null;
+  checkType: string;
+  name: string;
+  description?: string | null;
+  enabled?: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder?: number;
+}
+
+export interface DeepCheckDefinitionUpdate {
+  name?: string;
+  description?: string | null;
+  enabled?: boolean;
+  scheduleCron?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  thresholds?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any> | null;
+  sortOrder?: number;
+}
+
+export interface DeepCheckTestResult {
+  checkType: string;
+  status: Status;
+  message: string;
+  responseTimeMs: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  details?: Record<string, any> | null;
+}
+
+export interface TrendPoint {
+  checkedAt: string;
+  overallStatus: Status;
+  readyNodes: number;
+  totalNodes: number;
+  errorCount: number;
+  warningCount: number;
+}
+
 export interface DeepCheckReview {
   id: string;
   clusterId: string;

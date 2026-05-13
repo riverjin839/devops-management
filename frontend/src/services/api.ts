@@ -650,7 +650,7 @@ export const dailyCheckApi = {
     api.post<import('@/types').DailyCheckLog>(`/daily-check/run/${clusterId}`),
 };
 
-// Deep Check / AI Review API (Phase 1 — review only)
+// Deep Check / AI Review API
 export const deepCheckApi = {
   /** Returns cached AI review or computes it inline. Long timeout — Ollama can be slow. */
   getReview: (dailyCheckLogId: string) =>
@@ -664,6 +664,34 @@ export const deepCheckApi = {
       undefined,
       { timeout: 180000 },
     ),
+  // Phase 2 — execution
+  runDeepCheck: (clusterId: string) =>
+    api.post<import('@/types').DeepCheckReview>(`/deep-check/run/${clusterId}`, undefined, {
+      timeout: 180000,
+    }),
+  getLatestResult: (clusterId: string) =>
+    api.get<import('@/types').DeepCheckReview | null>(`/deep-check/results/${clusterId}/latest`),
+  // Phase 3 — definitions CRUD + check-type catalog + test + trend
+  getCheckTypes: () =>
+    api.get<import('@/types').DeepCheckTypeSchema[]>('/deep-check/check-types'),
+  listDefinitions: (clusterId?: string, enabledOnly = false) =>
+    api.get<import('@/types').DeepCheckDefinition[]>('/deep-check/definitions', {
+      params: { cluster_id: clusterId, enabled_only: enabledOnly },
+    }),
+  createDefinition: (payload: import('@/types').DeepCheckDefinitionCreate) =>
+    api.post<import('@/types').DeepCheckDefinition>('/deep-check/definitions', payload),
+  updateDefinition: (id: string, payload: import('@/types').DeepCheckDefinitionUpdate) =>
+    api.put<import('@/types').DeepCheckDefinition>(`/deep-check/definitions/${id}`, payload),
+  deleteDefinition: (id: string) =>
+    api.delete<void>(`/deep-check/definitions/${id}`),
+  testDefinition: (id: string, clusterId: string) =>
+    api.post<import('@/types').DeepCheckTestResult>(
+      `/deep-check/definitions/${id}/test`,
+      undefined,
+      { params: { cluster_id: clusterId }, timeout: 120000 },
+    ),
+  getTrend: (clusterId: string, days = 7) =>
+    api.get<import('@/types').TrendPoint[]>(`/deep-check/trend/${clusterId}`, { params: { days } }),
 };
 
 // PromQL Metric Cards API

@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from '@/pages/Dashboard';
+import { DailyCheckReviewPage } from '@/pages/DailyCheckReview';
+import { DeepCheckSettingsPage } from '@/pages/DeepCheckSettings';
 import { PlaybooksPage } from '@/pages/PlaybooksPage';
 import { IssueBoardPage } from '@/pages/IssueBoardPage';
 import { IssueFormPage } from '@/pages/IssueFormPage';
@@ -60,6 +62,8 @@ function AppShell() {
       >
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/daily-check/review/:clusterId" element={<DailyCheckReviewPage />} />
+              <Route path="/daily-check/settings" element={<DeepCheckSettingsPage />} />
               <Route path="/playbooks" element={<PlaybooksPage />} />
               <Route path="/issues" element={<IssueBoardPage />} />
               <Route path="/issues/new" element={<IssueFormPage />} />

@@ -155,6 +155,155 @@ async def list_definitions(
     return q.order_by(DeepCheckDefinition.sort_order.asc()).all()
 
 
+class DeepCheckDefinitionCreate(BaseModel):
+    cluster_id: Optional[UUID] = None
+    check_type: str
+    name: str
+    description: Optional[str] = None
+    enabled: bool = True
+    schedule_cron: Optional[str] = None
+    thresholds: Optional[dict] = None
+    params: Optional[dict] = None
+    sort_order: int = 0
+
+
+class DeepCheckDefinitionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    schedule_cron: Optional[str] = None
+    thresholds: Optional[dict] = None
+    params: Optional[dict] = None
+    sort_order: Optional[int] = None
+
+
+@router.post("/definitions", response_model=DeepCheckDefinitionResponse, status_code=201)
+async def create_definition(
+    payload: DeepCheckDefinitionCreate,
+    db: Session = Depends(get_db),
+):
+    from app.services.deep_checkers.registry import get_checker_class
+
+    if get_checker_class(payload.check_type) is None:
+        raise HTTPException(status_code=400, detail=f"Unknown check_type: {payload.check_type}")
+    row = DeepCheckDefinition(**payload.model_dump())
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.put("/definitions/{definition_id}", response_model=DeepCheckDefinitionResponse)
+async def update_definition(
+    definition_id: UUID,
+    payload: DeepCheckDefinitionUpdate,
+    db: Session = Depends(get_db),
+):
+    row = db.query(DeepCheckDefinition).filter(DeepCheckDefinition.id == definition_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Definition not found")
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete("/definitions/{definition_id}", status_code=204)
+async def delete_definition(
+    definition_id: UUID,
+    db: Session = Depends(get_db),
+):
+    row = db.query(DeepCheckDefinition).filter(DeepCheckDefinition.id == definition_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Definition not found")
+    db.delete(row)
+    db.commit()
+    return None
+
+
+class DeepCheckTestResponse(BaseModel):
+    check_type: str
+    status: str
+    message: str
+    response_time_ms: int
+    details: Optional[dict] = None
+
+
+@router.post("/definitions/{definition_id}/test", response_model=DeepCheckTestResponse)
+async def test_definition(
+    definition_id: UUID,
+    cluster_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Run a single checker against the chosen cluster — no persistence."""
+    from app.services.deep_checkers.registry import get_checker_class
+
+    row = db.query(DeepCheckDefinition).filter(DeepCheckDefinition.id == definition_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Definition not found")
+    cluster = db.query(Cluster).filter(Cluster.id == cluster_id).first()
+    if cluster is None:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+    cls = get_checker_class(row.check_type)
+    if cls is None:
+        raise HTTPException(status_code=400, detail=f"Unknown check_type: {row.check_type}")
+
+    checker = cls(cluster, params=row.params, thresholds=row.thresholds, db=db)
+    res = checker.safe_check()
+    return DeepCheckTestResponse(
+        check_type=row.check_type,
+        status=res.status.value,
+        message=res.message,
+        response_time_ms=res.response_time_ms,
+        details=res.details,
+    )
+
+
+# ----------------------------- Trend ------------------------------------
+
+class TrendPoint(BaseModel):
+    checked_at: datetime
+    overall_status: str
+    ready_nodes: int
+    total_nodes: int
+    error_count: int
+    warning_count: int
+
+
+@router.get("/trend/{cluster_id}", response_model=list[TrendPoint])
+async def get_trend(
+    cluster_id: UUID,
+    days: int = 7,
+    db: Session = Depends(get_db),
+):
+    """Time-series of daily check status for charting (last ``days`` days)."""
+    from datetime import timedelta
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    rows = (
+        db.query(DailyCheckLog)
+        .filter(
+            DailyCheckLog.cluster_id == cluster_id,
+            DailyCheckLog.checked_at >= cutoff,
+        )
+        .order_by(DailyCheckLog.checked_at.asc())
+        .all()
+    )
+    return [
+        TrendPoint(
+            checked_at=row.checked_at,
+            overall_status=row.overall_status.value if row.overall_status else "pending",
+            ready_nodes=row.ready_nodes or 0,
+            total_nodes=row.total_nodes or 0,
+            error_count=len(row.error_messages or []),
+            warning_count=len(row.warning_messages or []),
+        )
+        for row in rows
+    ]
+
+
 class DeepCheckResultResponse(BaseModel):
     id: UUID
     cluster_id: UUID
