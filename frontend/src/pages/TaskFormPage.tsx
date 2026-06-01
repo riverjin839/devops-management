@@ -549,7 +549,7 @@ export function TaskFormPage() {
                 placeholder="수행할 작업을 상세히 기술하세요"
                 minHeight="480px"
                 onImagePaste={handleImagePaste}
-                containerClassName="!bg-white"
+                containerClassName="bg-white dark:bg-background dark:text-foreground"
               />
             </div>
           </div>
