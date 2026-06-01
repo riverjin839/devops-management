@@ -31,6 +31,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   minHeight?: string;
   onImagePaste?: (dataUrl: string) => void;
+  containerClassName?: string;
 }
 
 interface ToolbarButtonProps {
@@ -274,6 +275,7 @@ export function RichTextEditor({
   placeholder = '내용을 입력하세요...',
   minHeight = '120px',
   onImagePaste,
+  containerClassName,
 }: RichTextEditorProps) {
   const isUpdatingFromProp = useRef(false);
 
@@ -359,7 +361,7 @@ export function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div className="w-full border border-border rounded-lg overflow-hidden bg-background focus-within:ring-1 focus-within:ring-primary">
+    <div className={`w-full border border-border rounded-lg overflow-hidden bg-background focus-within:ring-1 focus-within:ring-primary${containerClassName ? ` ${containerClassName}` : ''}`}>
       <Toolbar editor={editor} />
       <div onPaste={handlePaste}>
         <EditorContent editor={editor} />

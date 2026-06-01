@@ -300,9 +300,10 @@ export function TaskFormPage() {
         <form
           id="task-form"
           onSubmit={handleSubmit}
-          className="bg-card border border-border rounded-2xl p-8 space-y-6 mac-shadow"
+          className="bg-card border border-border rounded-2xl p-6 space-y-4 mac-shadow"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* ── 메타데이터 (압축) ── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label htmlFor={f('primary')} className={labelClass}>담당자(정) *</label>
               <input
@@ -320,7 +321,9 @@ export function TaskFormPage() {
                   <option key={a.name} value={a.name} />
                 ))}
               </datalist>
-              <label htmlFor={f('secondary')} className={`${labelClass} mt-3`}>담당자(부)</label>
+            </div>
+            <div>
+              <label htmlFor={f('secondary')} className={labelClass}>담당자(부)</label>
               <input
                 id={f('secondary')}
                 type="text"
@@ -331,6 +334,29 @@ export function TaskFormPage() {
                 list="task-assignee-list"
               />
             </div>
+            <div>
+              <label htmlFor={f('scheduledAt')} className={labelClass}>작업 예정일시 *</label>
+              <DateTimePicker
+                id={f('scheduledAt')}
+                value={scheduledAt}
+                onChange={setScheduledAt}
+                placeholder="예정일 선택"
+                required
+                clearable={false}
+              />
+            </div>
+            <div>
+              <label htmlFor={f('completedAt')} className={labelClass}>작업 완료일시</label>
+              <DateTimePicker
+                id={f('completedAt')}
+                value={completedAt}
+                onChange={setCompletedAt}
+                placeholder="완료 시 입력"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label htmlFor={f('cluster')} className={labelClass}>대상 클러스터</label>
               <select
@@ -344,9 +370,134 @@ export function TaskFormPage() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <label htmlFor={f('service')} className={`${labelClass} mt-3`}
-                title="통합지식 서비스 카탈로그(Settings → 서비스)와 연결되는 tag. 작업·이슈·할일 모두 동일 카탈로그를 공유.">
-                서비스 (통합지식 tag)
+            </div>
+            <div>
+              <label htmlFor={f('priority')} className={labelClass}>우선순위 *</label>
+              <select
+                id={f('priority')}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className={inputClass}
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={f('kanban')} className={labelClass}>보드 상태</label>
+              <select
+                id={f('kanban')}
+                value={kanbanStatus}
+                onChange={(e) => setKanbanStatus(e.target.value as KanbanStatus)}
+                className={inputClass}
+              >
+                {KANBAN_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{KANBAN_STATUS_LABEL[s]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={f('remarks')} className={labelClass}>비고</label>
+              <input
+                id={f('remarks')}
+                type="text"
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="추가 메모"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor={f('taskCategory')} className="text-sm font-medium">작업 분류 *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowCatManage((v) => !v)}
+                  className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  title="분류 관리"
+                >
+                  <Settings2 className="w-3 h-3" />
+                  관리
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  id={f('taskCategory')}
+                  value={taskCategory}
+                  onChange={(e) => setTaskCategory(e.target.value)}
+                  className={`${inputClass} flex-1`}
+                  required={taskCategory !== '기타'}
+                >
+                  <option value="">— 선택 —</option>
+                  {allCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                {taskCategory === '기타' && (
+                  <input
+                    type="text"
+                    value={taskCategoryCustom}
+                    onChange={(e) => setTaskCategoryCustom(e.target.value)}
+                    placeholder="직접 입력"
+                    className={`${inputClass} flex-1`}
+                    required
+                  />
+                )}
+              </div>
+              {showCatManage && (
+                <div className="mt-2 p-3 bg-muted/20 border border-border rounded-lg space-y-2">
+                  {customCategories.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">사용자 분류</p>
+                      {customCategories.map((cat) => (
+                        <div key={cat} className="flex items-center justify-between py-0.5">
+                          <span className="text-xs text-foreground/80">{cat}</span>
+                          <button
+                            type="button"
+                            onClick={() => deleteCustomCategory(cat)}
+                            className="text-xs text-muted-foreground hover:text-red-400 transition-colors px-1"
+                            title="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={newCatInput}
+                      onChange={(e) => setNewCatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addCustomCategory();
+                        }
+                      }}
+                      placeholder="새 분류명 입력"
+                      className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCustomCategory}
+                      className="flex items-center gap-0.5 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      추가
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div>
+              <label htmlFor={f('service')} className={labelClass}
+                title="통합지식 서비스 카탈로그(Settings → 서비스)와 연결되는 tag.">
+                서비스 tag
               </label>
               <select
                 id={f('service')}
@@ -361,113 +512,44 @@ export function TaskFormPage() {
                     <option key={s.key} value={s.key}>{s.label}</option>
                   ))}
               </select>
-              <label htmlFor={f('priority')} className={`${labelClass} mt-3`}>우선순위 *</label>
+            </div>
+            <div>
+              <label htmlFor={f('issueLink')} className={labelClass}>연결된 이슈</label>
               <select
-                id={f('priority')}
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
+                id={f('issueLink')}
+                value={issueId}
+                onChange={(e) => setIssueId(e.target.value)}
                 className={inputClass}
               >
-                {PRIORITIES.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
+                <option value="">— 연결 안 함 —</option>
+                {issues
+                  .slice()
+                  .sort((a, b) => (b.occurredAt ?? '').localeCompare(a.occurredAt ?? ''))
+                  .map((i) => {
+                    const title = i.issueContent.replace(/<[^>]*>/g, '').slice(0, 40);
+                    const when = (i.occurredAt ?? '').slice(0, 10);
+                    const status = i.resolvedAt ? '✓' : '●';
+                    return (
+                      <option key={i.id} value={i.id}>
+                        {status} [{i.issueArea}] {title || i.issueArea} — {when}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
           </div>
 
+          {/* ── 작업 내용 (주요 영역 — 크게) ── */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor={f('taskCategory')} className="text-sm font-medium">작업 분류 *</label>
-              <button
-                type="button"
-                onClick={() => setShowCatManage((v) => !v)}
-                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                title="분류 관리"
-              >
-                <Settings2 className="w-3 h-3" />
-                관리
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <select
-                id={f('taskCategory')}
-                value={taskCategory}
-                onChange={(e) => setTaskCategory(e.target.value)}
-                className={`${inputClass} flex-1`}
-                required={taskCategory !== '기타'}
-              >
-                <option value="">— 선택 —</option>
-                {allCategories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              {taskCategory === '기타' && (
-                <input
-                  type="text"
-                  value={taskCategoryCustom}
-                  onChange={(e) => setTaskCategoryCustom(e.target.value)}
-                  placeholder="직접 입력"
-                  className={`${inputClass} flex-1`}
-                  required
-                />
-              )}
-            </div>
-            {showCatManage && (
-              <div className="mt-2 p-3 bg-muted/20 border border-border rounded-lg space-y-2">
-                {customCategories.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-medium">사용자 분류</p>
-                    {customCategories.map((cat) => (
-                      <div key={cat} className="flex items-center justify-between py-0.5">
-                        <span className="text-xs text-foreground/80">{cat}</span>
-                        <button
-                          type="button"
-                          onClick={() => deleteCustomCategory(cat)}
-                          className="text-xs text-muted-foreground hover:text-red-400 transition-colors px-1"
-                          title="삭제"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={newCatInput}
-                    onChange={(e) => setNewCatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addCustomCategory();
-                      }
-                    }}
-                    placeholder="새 분류명 입력"
-                    className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomCategory}
-                    className="flex items-center gap-0.5 px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    추가
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor={f('taskContent')} className={labelClass}>작업 내용 *</label>
+            <label htmlFor={f('taskContent')} className="block text-sm font-semibold mb-1">작업 내용 *</label>
             <div id={f('taskContent')}>
               <RichTextEditor
                 value={taskContent}
                 onChange={setTaskContent}
                 placeholder="수행할 작업을 상세히 기술하세요"
-                minHeight="180px"
+                minHeight="480px"
                 onImagePaste={handleImagePaste}
+                containerClassName="bg-white dark:bg-background dark:text-foreground"
               />
             </div>
           </div>
@@ -479,92 +561,16 @@ export function TaskFormPage() {
                 value={resultContent}
                 onChange={setResultContent}
                 placeholder="작업 결과를 기술하세요 (선택 사항)"
-                minHeight="140px"
+                minHeight="160px"
                 onImagePaste={handleImagePaste}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div>
-              <label htmlFor={f('scheduledAt')} className={labelClass}>작업 예정일시 *</label>
-              <DateTimePicker
-                id={f('scheduledAt')}
-                value={scheduledAt}
-                onChange={setScheduledAt}
-                placeholder="예정일과 시간 선택"
-                required
-                clearable={false}
-              />
-            </div>
-            <div>
-              <label htmlFor={f('completedAt')} className={labelClass}>작업 완료일시</label>
-              <DateTimePicker
-                id={f('completedAt')}
-                value={completedAt}
-                onChange={setCompletedAt}
-                placeholder="완료 시 입력"
-              />
-            </div>
-            <div>
-              <label htmlFor={f('remarks')} className={labelClass}>비고</label>
-              <input
-                id={f('remarks')}
-                type="text"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="추가 메모 (선택 사항)"
-                className={inputClass}
-              />
-            </div>
-          </div>
-
-          {/* 연결된 이슈 */}
-          <div>
-            <label htmlFor={f('issueLink')} className={labelClass}>
-              연결된 이슈
-              <span className="ml-1.5 text-xs text-muted-foreground font-normal">(optional — 이 작업의 원인/배경이 되는 이슈)</span>
-            </label>
-            <select
-              id={f('issueLink')}
-              value={issueId}
-              onChange={(e) => setIssueId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">— 연결 안 함 —</option>
-              {issues
-                .slice()
-                .sort((a, b) => (b.occurredAt ?? '').localeCompare(a.occurredAt ?? ''))
-                .map((i) => {
-                  const title = i.issueContent.replace(/<[^>]*>/g, '').slice(0, 60);
-                  const when = (i.occurredAt ?? '').slice(0, 10);
-                  const status = i.resolvedAt ? '✓' : '●';
-                  return (
-                    <option key={i.id} value={i.id}>
-                      {status} [{i.issueArea}] {title || i.issueArea} — {when}
-                    </option>
-                  );
-                })}
-            </select>
-          </div>
-
-          {/* 칸반 보드 필드 */}
-          <div className="border-t border-border pt-5">
-            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">칸반 보드</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              <div>
-                <label htmlFor={f('kanban')} className={labelClass}>보드 상태</label>
-                <select
-                  id={f('kanban')}
-                  value={kanbanStatus}
-                  onChange={(e) => setKanbanStatus(e.target.value as KanbanStatus)}
-                  className={inputClass}
-                >
-                  {KANBAN_STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{KANBAN_STATUS_LABEL[s]}</option>
-                  ))}
-                </select>
-              </div>
+          {/* 칸반 보드 추가 필드 */}
+          <div className="border-t border-border pt-4">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">칸반 보드 상세</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label htmlFor={f('module')} className={labelClass}>모듈</label>
                 <select
@@ -606,20 +612,20 @@ export function TaskFormPage() {
                   className={inputClass}
                 />
               </div>
-            </div>
-            <div className="mt-4">
-              <label htmlFor={f('doneCond')} className={labelClass}>
-                완료 조건
-                <span className="ml-1.5 text-xs text-muted-foreground font-normal">(Done 이동 기준)</span>
-              </label>
-              <input
-                id={f('doneCond')}
-                type="text"
-                value={doneCondition}
-                onChange={(e) => setDoneCondition(e.target.value)}
-                placeholder="예: docker pull 캐시 동작 확인"
-                className={inputClass}
-              />
+              <div>
+                <label htmlFor={f('doneCond')} className={labelClass}>
+                  완료 조건
+                  <span className="ml-1 text-xs text-muted-foreground font-normal">(Done 기준)</span>
+                </label>
+                <input
+                  id={f('doneCond')}
+                  type="text"
+                  value={doneCondition}
+                  onChange={(e) => setDoneCondition(e.target.value)}
+                  placeholder="예: docker pull 캐시 동작 확인"
+                  className={inputClass}
+                />
+              </div>
             </div>
           </div>
 
