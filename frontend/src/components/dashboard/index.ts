@@ -10,4 +10,5 @@ export { MetricCardGrid } from './MetricCardGrid';
 export { AddMetricCardModal } from './AddMetricCardModal';
 export { KubeconfigEditModal } from './KubeconfigEditModal';
 export { KanbanSummaryCharts } from './KanbanSummaryCharts';
+export { WeeklyStatusTimeline } from './WeeklyStatusTimeline';
 export { AiSummaryCard } from './AiSummaryCard';
