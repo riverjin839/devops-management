@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, CalendarDays, Star, Flag,
   CheckCircle2, Clock, Circle, AlertCircle,
@@ -153,6 +153,30 @@ export function WeeklyStatusTimeline({ tasks, issues, isLoading, selectedCluster
   const rangeEnd = addDays(minWeek, (totalWeeks - 1) * 7 + 6);
   const shortDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
+  // thumb-center alignment for ticks/tooltip (thumb is 16px wide)
+  const frac = totalWeeks > 1 ? currentIndex / (totalWeeks - 1) : 0;
+  const centerLeft = (f: number) => `calc(${f} * (100% - 16px) + 8px)`;
+  const todayIdx = Math.max(0, Math.min(totalWeeks - 1, weeksBetween(minWeek, startOfWeek(today))));
+  const showTicks = totalWeeks > 1 && totalWeeks <= 24;
+
+  // ── mouse-wheel over the slider → move week by week (non-passive) ──
+  const sliderWrapRef = useRef<HTMLDivElement>(null);
+  const wheelAcc = useRef(0);
+  useEffect(() => {
+    const el = sliderWrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      wheelAcc.current += e.deltaY;
+      const TH = 40; // trackpad-friendly threshold
+      if (wheelAcc.current >= TH) { wheelAcc.current = 0; setIndex(currentIndex + 1); }
+      else if (wheelAcc.current <= -TH) { wheelAcc.current = 0; setIndex(currentIndex - 1); }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, totalWeeks, minWeek]);
+
   return (
     <div className="space-y-3">
       {/* ── toolbar ─────────────────────────────────────────────────────────── */}
@@ -184,17 +208,50 @@ export function WeeklyStatusTimeline({ tasks, issues, isLoading, selectedCluster
           <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <div className="flex-1 flex flex-col gap-1">
-          <input
-            type="range"
-            min={0}
-            max={Math.max(0, totalWeeks - 1)}
-            step={1}
-            value={currentIndex}
-            onChange={(e) => setIndex(Number(e.target.value))}
-            aria-label="주간 슬라이더"
-            className="week-slider w-full h-1.5 cursor-pointer accent-primary"
-          />
+        <div ref={sliderWrapRef} className="flex-1 flex flex-col gap-1" title="휠을 굴려 주를 넘길 수 있어요">
+          {/* slider + drag tooltip */}
+          <div className="relative pt-1 group">
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, totalWeeks - 1)}
+              step={1}
+              value={currentIndex}
+              onChange={(e) => setIndex(Number(e.target.value))}
+              aria-label="주간 슬라이더"
+              className="week-slider peer w-full h-1.5 cursor-pointer accent-primary"
+            />
+            {/* tooltip: shows currently-viewed week range above the thumb */}
+            <div
+              className="pointer-events-none absolute -top-6 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-background opacity-0 shadow-md transition-opacity peer-hover:opacity-100 peer-focus-visible:opacity-100 peer-active:opacity-100"
+              style={{ left: centerLeft(frac) }}
+            >
+              {shortDate(weekStart)} ~ {shortDate(days[6])}
+            </div>
+          </div>
+
+          {/* week tick ruler */}
+          {showTicks && (
+            <div className="relative h-2">
+              {Array.from({ length: totalWeeks }, (_, i) => {
+                const f = totalWeeks > 1 ? i / (totalWeeks - 1) : 0;
+                const isTd = i === todayIdx;
+                const isCur = i === currentIndex;
+                return (
+                  <span
+                    key={i}
+                    className={`absolute top-0 -translate-x-1/2 rounded-full ${
+                      isCur ? 'bg-primary w-[3px] h-2'
+                      : isTd ? 'bg-primary/50 w-px h-2'
+                      : 'bg-border w-px h-1.5'
+                    }`}
+                    style={{ left: centerLeft(f) }}
+                  />
+                );
+              })}
+            </div>
+          )}
+
           <div className="flex justify-between text-[10px] text-muted-foreground/70 font-mono">
             <span>{shortDate(rangeStart)}</span>
             <span className="text-primary font-semibold">{currentIndex + 1} / {totalWeeks}주</span>
