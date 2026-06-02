@@ -11,6 +11,7 @@ import {
   AddMetricCardModal,
   KubeconfigEditModal,
   KanbanSummaryCharts,
+  WeeklyStatusTimeline,
   AiSummaryCard,
 } from '@/components/dashboard';
 import { PlaybookCard, AddPlaybookModal, RunCredsModal } from '@/components/playbooks';
@@ -418,6 +419,16 @@ export function Dashboard() {
         </MacCard>
 
         </div>
+
+        {/* ── 주간 현황 타임라인 (이번 주 작업 간트 + 마일스톤) ─────────────── */}
+        <MacCard title="주간 현황 타임라인" bodyPadding="p-4">
+          <WeeklyStatusTimeline
+            tasks={allTasks}
+            issues={allIssues}
+            isLoading={tasksLoading || issuesLoading}
+            selectedClusterId={selectedClusterId}
+          />
+        </MacCard>
 
         {/* 2-column grid: Playbook Checks ↔ 작업/이슈 현황 (lg 부터 분할) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
