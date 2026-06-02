@@ -21,6 +21,9 @@ function startOfWeek(d: Date): Date {
   r.setDate(r.getDate() - r.getDay()); // Sunday start
   return r;
 }
+function weeksBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / (7 * 86400000));
+}
 const KR_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 // ── status visual map (macOS / Claude soft gradient bars) ───────────────────────
@@ -122,10 +125,33 @@ export function WeeklyStatusTimeline({ tasks, issues, isLoading, selectedCluster
     return fa === fb ? fa : `${fa}–${fb}`;
   })();
 
-  const goPrev = () => setWeekStart(d => addDays(d, -7));
-  const goNext = () => setWeekStart(d => addDays(d, 7));
+  // ── slider range: span from earliest to latest dated item (+1 week padding) ──
+  const { minWeek, totalWeeks } = useMemo(() => {
+    const stamps: number[] = [startOfWeek(today).getTime()];
+    const consider = (s?: string) => {
+      if (!s) return;
+      const d = startOfWeek(new Date(s.slice(0, 10) + 'T00:00:00'));
+      if (!Number.isNaN(d.getTime())) stamps.push(d.getTime());
+    };
+    for (const t of tasks) { consider(t.scheduledAt); consider(t.completedAt); }
+    for (const i of issues) { consider(i.occurredAt); consider(i.resolvedAt); }
+    const lo = addDays(new Date(Math.min(...stamps)), -7);   // 1-week padding each side
+    const hi = addDays(new Date(Math.max(...stamps)), 7);
+    return { minWeek: lo, totalWeeks: weeksBetween(lo, hi) + 1 };
+  }, [tasks, issues, today]);
+
+  const currentIndex = Math.max(0, Math.min(totalWeeks - 1, weeksBetween(minWeek, weekStart)));
+  const setIndex = (idx: number) => {
+    const c = Math.max(0, Math.min(totalWeeks - 1, idx));
+    setWeekStart(addDays(minWeek, c * 7));
+  };
+  const goPrev = () => setIndex(currentIndex - 1);
+  const goNext = () => setIndex(currentIndex + 1);
   const goToday = () => setWeekStart(startOfWeek(new Date()));
   const isThisWeek = weekStartStr === fmtDate(startOfWeek(today));
+  const rangeStart = minWeek;
+  const rangeEnd = addDays(minWeek, (totalWeeks - 1) * 7 + 6);
+  const shortDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
   return (
     <div className="space-y-3">
@@ -142,20 +168,47 @@ export function WeeklyStatusTimeline({ tasks, issues, isLoading, selectedCluster
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-sky-400 to-blue-500" />작업 {taskBars.length}</span>
-            <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500 fill-amber-400" />마일스톤 {milestones.length}</span>
-          </div>
-          <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5">
-            <button onClick={goPrev} className="p-1.5 rounded-md text-muted-foreground hover:bg-card hover:text-foreground transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button onClick={goNext} className="p-1.5 rounded-md text-muted-foreground hover:bg-card hover:text-foreground transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
+        <div className="hidden sm:flex items-center gap-3 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-sky-400 to-blue-500" />작업 {taskBars.length}</span>
+          <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500 fill-amber-400" />마일스톤 {milestones.length}</span>
+        </div>
+      </div>
+
+      {/* ── week slider (◀ ━━●━━ ▶) — drag to move week by week ──────────────── */}
+      <div className="flex items-center gap-2.5 px-1">
+        <button
+          onClick={goPrev}
+          disabled={currentIndex <= 0}
+          aria-label="이전 주"
+          className="p-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-card hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        <div className="flex-1 flex flex-col gap-1">
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, totalWeeks - 1)}
+            step={1}
+            value={currentIndex}
+            onChange={(e) => setIndex(Number(e.target.value))}
+            aria-label="주간 슬라이더"
+            className="week-slider w-full h-1.5 cursor-pointer accent-primary"
+          />
+          <div className="flex justify-between text-[10px] text-muted-foreground/70 font-mono">
+            <span>{shortDate(rangeStart)}</span>
+            <span className="text-primary font-semibold">{currentIndex + 1} / {totalWeeks}주</span>
+            <span>{shortDate(rangeEnd)}</span>
           </div>
         </div>
+
+        <button
+          onClick={goNext}
+          disabled={currentIndex >= totalWeeks - 1}
+          aria-label="다음 주"
+          className="p-1.5 rounded-lg bg-secondary text-muted-foreground hover:bg-card hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* ── timeline grid ───────────────────────────────────────────────────── */}
