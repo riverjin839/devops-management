@@ -54,7 +54,7 @@ const MODULE_COLOR: Record<string, string> = {
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type ViewMode = 'week' | 'twoWeek' | 'month';
+type ViewMode = 'week' | 'twoWeek' | 'month' | 'quarter';
 
 interface DayItem {
   type: 'task' | 'issue';
@@ -223,6 +223,14 @@ const STATUS_CELL: Record<string, string> = {
   backlog: 'bg-secondary border-border',
 };
 
+interface WeekRange {
+  start: Date;
+  end: Date;
+  startStr: string;
+  endStr: string;
+  idx: number;
+}
+
 function PersonalGanttView({
   assignee,
   tasks,
@@ -230,6 +238,8 @@ function PersonalGanttView({
   dates,
   todayStr,
   onItemClick,
+  viewMode,
+  weeks,
 }: {
   assignee: string;
   tasks: Task[];
@@ -237,7 +247,10 @@ function PersonalGanttView({
   dates: Date[];
   todayStr: string;
   onItemClick: (item: DayItem) => void;
+  viewMode: ViewMode;
+  weeks: WeekRange[];
 }) {
+  const isQuarter = viewMode === 'quarter';
   const myTasks = tasks.filter(t => (t.assignee || '미지정') === assignee);
   const myIssues = issues.filter(i => (i.assignee || '미지정') === assignee);
 
@@ -246,6 +259,7 @@ function PersonalGanttView({
 
   // task → set of active date strings (within window)
   const taskActiveDates = useMemo(() => {
+    if (isQuarter) return new Map<string, Set<string>>();
     const map = new Map<string, Set<string>>();
     for (const task of myTasks) {
       const ts = task.scheduledAt?.slice(0, 10);
@@ -263,7 +277,25 @@ function PersonalGanttView({
       map.set(task.id, active);
     }
     return map;
-  }, [myTasks, startStr, endStr]);
+  }, [myTasks, startStr, endStr, isQuarter]);
+
+  // quarter 모드: task → 활성 주(週) 인덱스 집합
+  const taskActiveWeeks = useMemo(() => {
+    if (!isQuarter) return new Map<string, Set<number>>();
+    const map = new Map<string, Set<number>>();
+    for (const task of myTasks) {
+      const ts = task.scheduledAt?.slice(0, 10);
+      if (!ts) continue;
+      const te = task.completedAt?.slice(0, 10) ??
+        (task.kanbanStatus !== 'done' ? fmtDate(new Date()) : ts);
+      const active = new Set<number>();
+      weeks.forEach((w, i) => {
+        if (ts <= w.endStr && te >= w.startStr) active.add(i);
+      });
+      map.set(task.id, active);
+    }
+    return map;
+  }, [myTasks, isQuarter, weeks]);
 
   type GanttRow = { task: Task; indent: boolean } | { issue: Issue };
 
@@ -300,7 +332,7 @@ function PersonalGanttView({
     );
   }
 
-  const COL_W = dates.length > 14 ? 68 : 90;
+  const COL_W = isQuarter ? 120 : dates.length > 14 ? 68 : 90;
 
   return (
     <div className="flex-1 overflow-auto">
@@ -310,18 +342,32 @@ function PersonalGanttView({
             <th className="sticky left-0 z-30 bg-card border-b border-r border-border px-3 py-2 text-left min-w-[240px]">
               <span className="text-xs font-semibold text-muted-foreground">작업 / 이슈</span>
             </th>
-            {dates.map(d => {
-              const ds = fmtDate(d);
-              const isTd = ds === todayStr;
-              const isWE = isWeekend(d);
-              return (
-                <th key={ds} className={`border-b border-r border-border px-1 py-2 text-center font-medium ${isTd ? 'bg-primary/10 text-primary' : isWE ? 'text-muted-foreground/50 bg-secondary/30' : 'text-muted-foreground'}`}
-                  style={{ minWidth: COL_W, width: COL_W }}>
-                  <div className="text-[11px] font-semibold">{dayLabel(d)}</div>
-                  {isTd && <div className="text-[9px] text-primary font-bold">TODAY</div>}
-                </th>
-              );
-            })}
+            {isQuarter
+              ? weeks.map(w => {
+                  const isCur = todayStr >= w.startStr && todayStr <= w.endStr;
+                  return (
+                    <th key={w.startStr}
+                      className={`border-b border-r border-border px-1 py-2 text-center font-medium ${isCur ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                      style={{ minWidth: COL_W, width: COL_W }}>
+                      <div className="text-[11px] font-semibold">{`W${w.idx + 1}`}</div>
+                      <div className="text-[10px] opacity-70">{`${w.startStr.slice(5)}~${w.endStr.slice(5)}`}</div>
+                      {isCur && <div className="text-[9px] text-primary font-bold">이번 주</div>}
+                    </th>
+                  );
+                })
+              : dates.map(d => {
+                  const ds = fmtDate(d);
+                  const isTd = ds === todayStr;
+                  const isWE = isWeekend(d);
+                  return (
+                    <th key={ds} className={`border-b border-r border-border px-1 py-2 text-center font-medium ${isTd ? 'bg-primary/10 text-primary' : isWE ? 'text-muted-foreground/50 bg-secondary/30' : 'text-muted-foreground'}`}
+                      style={{ minWidth: COL_W, width: COL_W }}>
+                      <div className="text-[11px] font-semibold">{dayLabel(d)}</div>
+                      {isTd && <div className="text-[9px] text-primary font-bold">TODAY</div>}
+                    </th>
+                  );
+                })
+            }
           </tr>
         </thead>
         <tbody>
@@ -332,6 +378,7 @@ function PersonalGanttView({
             if ('task' in row) {
               const t = row.task;
               const active = taskActiveDates.get(t.id) ?? new Set<string>();
+              const activeWks = taskActiveWeeks.get(t.id) ?? new Set<number>();
               const cellColor = STATUS_CELL[t.kanbanStatus] ?? STATUS_CELL.todo;
               const item: DayItem = {
                 type: 'task', id: t.id, label: t.taskContent, sub: t.taskCategory,
@@ -353,24 +400,43 @@ function PersonalGanttView({
                       {t.module && <span className={`ml-1 px-1 rounded ${MODULE_COLOR[t.module] ?? 'bg-secondary text-muted-foreground'}`}>{t.module}</span>}
                     </div>
                   </td>
-                  {dates.map(d => {
-                    const ds = fmtDate(d);
-                    const on = active.has(ds);
-                    const isTd = ds === todayStr;
-                    return (
-                      <td key={ds}
-                        onClick={() => on && onItemClick(item)}
-                        className={`border-b border-r border-border align-middle ${isTd ? 'bg-primary/5' : isWeekend(d) ? 'bg-secondary/20' : ''} ${on ? 'cursor-pointer hover:brightness-110' : ''}`}
-                        style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
-                        {on && (
-                          <div className={`mx-0.5 rounded border h-[22px] ${cellColor} flex items-center justify-center gap-0.5`}>
-                            {t.kanbanStatus === 'done' && <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />}
-                            {t.kanbanStatus === 'in_progress' && <Clock className="w-2.5 h-2.5 text-blue-400" />}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+                  {isQuarter
+                    ? weeks.map((w, wi) => {
+                        const on = activeWks.has(wi);
+                        const isCur = todayStr >= w.startStr && todayStr <= w.endStr;
+                        return (
+                          <td key={w.startStr}
+                            onClick={() => on && onItemClick(item)}
+                            className={`border-b border-r border-border align-middle ${isCur ? 'bg-primary/5' : ''} ${on ? 'cursor-pointer hover:brightness-110' : ''}`}
+                            style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
+                            {on && (
+                              <div className={`mx-0.5 rounded border h-[22px] ${cellColor} flex items-center justify-center gap-0.5`}>
+                                {t.kanbanStatus === 'done' && <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />}
+                                {t.kanbanStatus === 'in_progress' && <Clock className="w-2.5 h-2.5 text-blue-400" />}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })
+                    : dates.map(d => {
+                        const ds = fmtDate(d);
+                        const on = active.has(ds);
+                        const isTd = ds === todayStr;
+                        return (
+                          <td key={ds}
+                            onClick={() => on && onItemClick(item)}
+                            className={`border-b border-r border-border align-middle ${isTd ? 'bg-primary/5' : isWeekend(d) ? 'bg-secondary/20' : ''} ${on ? 'cursor-pointer hover:brightness-110' : ''}`}
+                            style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
+                            {on && (
+                              <div className={`mx-0.5 rounded border h-[22px] ${cellColor} flex items-center justify-center gap-0.5`}>
+                                {t.kanbanStatus === 'done' && <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />}
+                                {t.kanbanStatus === 'in_progress' && <Clock className="w-2.5 h-2.5 text-blue-400" />}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })
+                  }
                 </tr>
               );
             } else {
@@ -391,23 +457,41 @@ function PersonalGanttView({
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 ml-4">{issue.issueArea}</div>
                   </td>
-                  {dates.map(d => {
-                    const colDs = fmtDate(d);
-                    const on = colDs === ds;
-                    const isTd = colDs === todayStr;
-                    return (
-                      <td key={colDs}
-                        onClick={() => on && onItemClick(item)}
-                        className={`border-b border-r border-border align-middle ${isTd ? 'bg-primary/5' : isWeekend(d) ? 'bg-secondary/20' : ''} ${on ? 'cursor-pointer' : ''}`}
-                        style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
-                        {on && (
-                          <div className={`mx-0.5 rounded border h-[22px] ${issue.resolvedAt ? 'bg-green-500/30 border-green-500/50' : 'bg-orange-500/30 border-orange-500/50'} flex items-center justify-center`}>
-                            <AlertCircle className={`w-2.5 h-2.5 ${issue.resolvedAt ? 'text-green-400' : 'text-orange-400'}`} />
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+                  {isQuarter
+                    ? weeks.map((w, wi) => {
+                        const on = ds !== undefined && ds >= w.startStr && ds <= w.endStr;
+                        const isCur = todayStr >= w.startStr && todayStr <= w.endStr;
+                        return (
+                          <td key={wi}
+                            onClick={() => on && onItemClick(item)}
+                            className={`border-b border-r border-border align-middle ${isCur ? 'bg-primary/5' : ''} ${on ? 'cursor-pointer' : ''}`}
+                            style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
+                            {on && (
+                              <div className={`mx-0.5 rounded border h-[22px] ${issue.resolvedAt ? 'bg-green-500/30 border-green-500/50' : 'bg-orange-500/30 border-orange-500/50'} flex items-center justify-center`}>
+                                <AlertCircle className={`w-2.5 h-2.5 ${issue.resolvedAt ? 'text-green-400' : 'text-orange-400'}`} />
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })
+                    : dates.map(d => {
+                        const colDs = fmtDate(d);
+                        const on = colDs === ds;
+                        const isTd = colDs === todayStr;
+                        return (
+                          <td key={colDs}
+                            onClick={() => on && onItemClick(item)}
+                            className={`border-b border-r border-border align-middle ${isTd ? 'bg-primary/5' : isWeekend(d) ? 'bg-secondary/20' : ''} ${on ? 'cursor-pointer' : ''}`}
+                            style={{ minWidth: COL_W, width: COL_W, height: 34 }}>
+                            {on && (
+                              <div className={`mx-0.5 rounded border h-[22px] ${issue.resolvedAt ? 'bg-green-500/30 border-green-500/50' : 'bg-orange-500/30 border-orange-500/50'} flex items-center justify-center`}>
+                                <AlertCircle className={`w-2.5 h-2.5 ${issue.resolvedAt ? 'text-green-400' : 'text-orange-400'}`} />
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })
+                  }
                 </tr>
               );
             }
@@ -447,10 +531,20 @@ export function WbsFlowPage() {
   const issues: Issue[] = useMemo(() => issueRes ?? [], [issueRes]);
 
   // ── date range ──
-  const dayCount = viewMode === 'week' ? 7 : viewMode === 'twoWeek' ? 14 : 30;
+  const dayCount = viewMode === 'week' ? 7 : viewMode === 'twoWeek' ? 14 : viewMode === 'quarter' ? 91 : 30;
   const dates = useMemo(() => {
     return Array.from({ length: dayCount }, (_, i) => addDays(baseDate, i));
   }, [baseDate, dayCount]);
+
+  // quarter 모드 전용: 13주 범위 배열
+  const weeks = useMemo((): WeekRange[] => {
+    if (viewMode !== 'quarter') return [];
+    return Array.from({ length: 13 }, (_, i) => {
+      const start = addDays(baseDate, i * 7);
+      const end   = addDays(start, 6);
+      return { start, end, startStr: fmtDate(start), endStr: fmtDate(end), idx: i };
+    });
+  }, [viewMode, baseDate]);
 
   const todayStr = fmtDate(today);
   const startStr = fmtDate(baseDate);
@@ -460,7 +554,8 @@ export function WbsFlowPage() {
   const moveNext = () => setBaseDate(d => addDays(d, dayCount));
   const moveToday = () => {
     const d = new Date(today);
-    if (viewMode !== 'month') d.setDate(d.getDate() - d.getDay());
+    if (viewMode === 'month') { /* no-op, just use today */ }
+    else { d.setDate(d.getDate() - d.getDay()); }
     setBaseDate(d);
   };
 
@@ -573,7 +668,27 @@ export function WbsFlowPage() {
       return sum + cnt;
     }, 0), [filteredRows]);
 
-  const COL_W = viewMode === 'month' ? 80 : 110;
+  const COL_W = viewMode === 'quarter' ? 130 : viewMode === 'month' ? 80 : 110;
+
+  // quarter 모드: 담당자 행 × 주 컬럼 아이템 집계
+  const weekRows = useMemo(() => {
+    if (viewMode !== 'quarter') return [] as (AssigneeRow & { weekItems: DayItem[][] })[];
+    return filteredRows.map(row => {
+      const weekItems = weeks.map(w => {
+        const seen = new Set<string>();
+        const items: DayItem[] = [];
+        let d = new Date(w.start);
+        while (fmtDate(d) <= w.endStr) {
+          for (const item of row.items.get(fmtDate(d)) ?? []) {
+            if (!seen.has(item.id)) { seen.add(item.id); items.push(item); }
+          }
+          d = addDays(d, 1);
+        }
+        return items;
+      });
+      return { ...row, weekItems };
+    });
+  }, [viewMode, filteredRows, weeks]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -626,6 +741,7 @@ export function WbsFlowPage() {
               { id: 'week',    label: '1주' },
               { id: 'twoWeek', label: '2주' },
               { id: 'month',   label: '1달' },
+              { id: 'quarter', label: '분기' },
             ]}
             active={viewMode}
             onChange={(v) => setViewMode(v as ViewMode)}
@@ -688,6 +804,8 @@ export function WbsFlowPage() {
             dates={dates}
             todayStr={todayStr}
             onItemClick={setSelectedItem}
+            viewMode={viewMode}
+            weeks={weeks}
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
@@ -711,26 +829,45 @@ export function WbsFlowPage() {
                 <th className="sticky left-0 z-30 bg-card border-b border-r border-border px-3 py-2 text-left w-40 min-w-[160px]">
                   <span className="text-xs font-semibold text-muted-foreground">담당자 / 역할</span>
                 </th>
-                {dates.map(d => {
-                  const ds = fmtDate(d);
-                  const isTodayCol = ds === todayStr;
-                  const isWE = isWeekend(d);
-                  return (
-                    <th key={ds}
-                      className={`border-b border-r border-border px-1 py-2 text-center font-medium transition-colors
-                        ${isTodayCol ? 'bg-primary/10 text-primary' : isWE ? 'text-muted-foreground/50 bg-secondary/30' : 'text-muted-foreground'}`}
-                      style={{ minWidth: COL_W, width: COL_W }}>
-                      <div className="leading-tight">
-                        <div className={`text-[11px] font-semibold ${isTodayCol ? 'text-primary' : ''}`}>
-                          {dayLabel(d)}
-                        </div>
-                        {isTodayCol && (
-                          <div className="text-[9px] text-primary font-bold">TODAY</div>
-                        )}
-                      </div>
-                    </th>
-                  );
-                })}
+                {viewMode === 'quarter'
+                  ? weeks.map(w => {
+                      const isCur = todayStr >= w.startStr && todayStr <= w.endStr;
+                      return (
+                        <th key={w.startStr}
+                          className={`border-b border-r border-border px-1 py-2 text-center font-medium transition-colors
+                            ${isCur ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                          style={{ minWidth: COL_W, width: COL_W }}>
+                          <div className="leading-tight">
+                            <div className={`text-[11px] font-semibold ${isCur ? 'text-primary' : ''}`}>
+                              {`W${w.idx + 1}`}
+                            </div>
+                            <div className="text-[10px] opacity-70">{`${w.startStr.slice(5)}~${w.endStr.slice(5)}`}</div>
+                            {isCur && <div className="text-[9px] text-primary font-bold">이번 주</div>}
+                          </div>
+                        </th>
+                      );
+                    })
+                  : dates.map(d => {
+                      const ds = fmtDate(d);
+                      const isTodayCol = ds === todayStr;
+                      const isWE = isWeekend(d);
+                      return (
+                        <th key={ds}
+                          className={`border-b border-r border-border px-1 py-2 text-center font-medium transition-colors
+                            ${isTodayCol ? 'bg-primary/10 text-primary' : isWE ? 'text-muted-foreground/50 bg-secondary/30' : 'text-muted-foreground'}`}
+                          style={{ minWidth: COL_W, width: COL_W }}>
+                          <div className="leading-tight">
+                            <div className={`text-[11px] font-semibold ${isTodayCol ? 'text-primary' : ''}`}>
+                              {dayLabel(d)}
+                            </div>
+                            {isTodayCol && (
+                              <div className="text-[9px] text-primary font-bold">TODAY</div>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })
+                }
               </tr>
             </thead>
             <tbody>
@@ -756,31 +893,50 @@ export function WbsFlowPage() {
                       </div>
                       <div className="mt-1 text-[9px] text-muted-foreground/60">{totalItemsInRow}건</div>
                     </td>
-                    {dates.map(d => {
-                      const ds = fmtDate(d);
-                      const items = row.items.get(ds) ?? [];
-                      const isTodayCol = ds === todayStr;
-                      const isWE = isWeekend(d);
-                      // Deduplicate items by id (task spans multiple days)
-                      const seen = new Set<string>();
-                      const uniqueItems = items.filter(item => {
-                        if (seen.has(item.id)) return false;
-                        seen.add(item.id);
-                        return true;
-                      });
-                      return (
-                        <td key={ds}
-                          className={`border-b border-r border-border px-1 py-1 align-top
-                            ${isTodayCol ? 'bg-primary/5' : isWE ? 'bg-secondary/20' : ''}`}
-                          style={{ minWidth: COL_W, width: COL_W }}>
-                          <div className="flex flex-col gap-0.5">
-                            {uniqueItems.map(item => (
-                              <ItemCard key={`${item.id}-${ds}`} item={item} onClick={() => setSelectedItem(item)} />
-                            ))}
-                          </div>
-                        </td>
-                      );
-                    })}
+                    {viewMode === 'quarter'
+                      ? (() => {
+                          const wr = weekRows.find(r => r.assignee === row.assignee);
+                          return weeks.map((w, wi) => {
+                            const items = wr?.weekItems[wi] ?? [];
+                            const isCur = todayStr >= w.startStr && todayStr <= w.endStr;
+                            return (
+                              <td key={w.startStr}
+                                className={`border-b border-r border-border px-1 py-1 align-top ${isCur ? 'bg-primary/5' : ''}`}
+                                style={{ minWidth: COL_W, width: COL_W }}>
+                                <div className="flex flex-col gap-0.5">
+                                  {items.map(item => (
+                                    <ItemCard key={item.id} item={item} onClick={() => setSelectedItem(item)} />
+                                  ))}
+                                </div>
+                              </td>
+                            );
+                          });
+                        })()
+                      : dates.map(d => {
+                          const ds = fmtDate(d);
+                          const items = row.items.get(ds) ?? [];
+                          const isTodayCol = ds === todayStr;
+                          const isWE = isWeekend(d);
+                          const seen = new Set<string>();
+                          const uniqueItems = items.filter(item => {
+                            if (seen.has(item.id)) return false;
+                            seen.add(item.id);
+                            return true;
+                          });
+                          return (
+                            <td key={ds}
+                              className={`border-b border-r border-border px-1 py-1 align-top
+                                ${isTodayCol ? 'bg-primary/5' : isWE ? 'bg-secondary/20' : ''}`}
+                              style={{ minWidth: COL_W, width: COL_W }}>
+                              <div className="flex flex-col gap-0.5">
+                                {uniqueItems.map(item => (
+                                  <ItemCard key={`${item.id}-${ds}`} item={item} onClick={() => setSelectedItem(item)} />
+                                ))}
+                              </div>
+                            </td>
+                          );
+                        })
+                    }
                   </tr>
                 );
               })}
